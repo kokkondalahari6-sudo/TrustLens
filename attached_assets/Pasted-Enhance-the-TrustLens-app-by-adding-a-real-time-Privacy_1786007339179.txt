@@ -1,0 +1,75 @@
+Enhance the TrustLens app by adding a real-time "Privacy Shield" feature that works like a background AI safety assistant on Android.
+Goal: Before a user sends a message to any AI chatbot (ChatGPT, Gemini, Claude, Grok, Perplexity, DeepSeek, Copilot, etc.), TrustLens should analyze the text and warn the user if it contains sensitive or confidential information.
+Features
+Accessibility Service
+Create an Android Accessibility Service that monitors text entered into supported AI chatbot apps.
+Detect when the user presses or is about to press the Send button.
+Real-Time AI Analysis
+Extract only the message being sent.
+Run the existing TrustLens detection engine.
+Detect:
+API keys
+Passwords
+JWT/Bearer tokens
+Credit/Debit card numbers
+Aadhaar/PAN/SSN
+Bank account details
+Email addresses
+Phone numbers
+IP addresses
+Home addresses
+Company confidential data
+Source code secrets
+Any other sensitive information
+Risk Score
+Calculate a Privacy Risk Score (0–100).
+Classify as:
+Safe (Green)
+Warning (Yellow)
+High Risk (Red)
+Floating Warning If risky data is detected, show a floating overlay:
+⚠️ Sensitive information detected.
+You may be sharing confidential information with an AI chatbot.
+Detected:
+API Key
+Email Address
+Phone Number
+Risk Score: 92%
+Buttons:
+Review Message
+Send Anyway
+Cancel
+Notification Also show a notification:
+"TrustLens detected sensitive information in the message you're about to send."
+Tapping it opens the detailed analysis screen.
+Privacy
+Perform all scanning locally whenever possible.
+Never store messages permanently.
+Never upload user text without explicit permission.
+Delete scanned text immediately after analysis.
+Supported Apps Detect messages from:
+ChatGPT
+Gemini
+Claude
+Grok
+Copilot
+DeepSeek
+Perplexity
+Poe
+Any app whose package name can be configured.
+Settings Allow users to:
+Enable/Disable monitoring
+Choose apps to monitor
+Change sensitivity level
+Enable vibration
+Enable sound alert
+View detection history (without storing message content)
+UI Match the existing TrustLens theme with modern glassmorphism cards, purple-blue gradients, and clean animations.
+Architecture
+Kotlin + Jetpack Compose
+MVVM architecture
+Accessibility Service
+Foreground Service for monitoring
+Existing TrustLens AI detection engine
+Material Design 3
+Expected Flow: User types a prompt in ChatGPT → taps Send → TrustLens intercepts the outgoing text → scans it instantly → if sensitive data is found, displays a warning overlay asking for confirmation before the message is sent.
