@@ -1,0 +1,124 @@
+SYSTEM / MASTER ROLE
+You are a Principal Full-Stack Engineer and Security Architect. Your task is to build a complete, production-ready full-stack application named *TrustLens* for an AI Security, Privacy & Trust hackathon.
+
+---
+
+## 1. PROJECT OVERVIEW & THEME
+- *Name:* TrustLens – AI-Powered Privacy Transparency & Threat Audit Platform
+- *Theme:* AI Security, Privacy & Trust
+- *Core Value Proposition:* Addresses the core problem of invisible third-party data tracking and AI privacy risks. TrustLens acts as an intelligent proxy layer that intercepts user inputs, leverages AI to redact sensitive PII/secrets in real time before transmission, records audit trails, and provides real-time risk analytics.
+
+---
+
+## 2. TECHNICAL STACK REQUIREMENTS (STRICT)
+You MUST strictly use the following technologies:
+
+### Frontend
+- Framework: React.js (Bootstrapped with Vite)
+- Routing: React Router (react-router-dom v6+)
+- Styling: Tailwind CSS
+- HTTP Client: Axios
+- Visualization: Recharts or Chart.js
+
+### Backend
+- Runtime/Framework: Node.js with Express.js
+- Authentication: JSON Web Token (JWT) + bcrypt for password hashing
+- Request Validation: Zod or Express Validator
+- Middleware: Express CORS, Morgan, dotenv
+
+### Database
+- Engine: Supabase (PostgreSQL) OR MongoDB Atlas (using Mongoose)
+
+### Artificial Intelligence
+- API: Google Gemini API (@google/generative-ai)
+- Security Enforcement: ALL AI API keys MUST strictly remain in backend .env files. NEVER expose keys on the frontend.
+
+---
+
+## 3. APPLICATION ARCHITECTURE & FILE STRUCTURE
+Generate the following project directory layout cleanly:
+
+trustlens/
+├── backend/
+│   ├── src/
+│   │   ├── config/          # DB connection, environment config
+│   │   ├── controllers/     # Auth, Audit, Inspection business logic
+│   │   ├── middleware/      # JWT verification, Zod validation, Gemini DLP Middleware
+│   │   ├── models/         # Database schemas (Users, AuditLogs, Policies)
+│   │   ├── routes/          # Express route definitions
+│   │   └── index.js         # Entry point
+│   ├── .env.example
+│   └── package.json
+└── frontend/
+├── src/
+│   ├── api/             # Axios instance & API caller hooks
+│   ├── components/      # Reusable UI components (Navbar, Cards, Charts)
+│   ├── context/         # AuthContext for managing JWT user state
+│   ├── pages/           # Landing, Login, Register, Dashboard, Inspector, Reports
+│   ├── App.jsx
+│   └── main.jsx
+├── tailwind.config.js
+└── package.json
+
+
+---
+
+## 4. CORE FEATURES & IMPLEMENTATION STEPS
+
+### Feature A: Authentication & Access Control
+1. Implement JWT-based registration and login (/api/auth/register, /api/auth/login).
+2. Secure password storage using bcrypt (10 salt rounds).
+3. Validate request bodies using Zod schemas for email and password strength.
+4. Protect secure API endpoints with an authMiddleware that verifies Bearer tokens.
+
+### Feature B: Real-Time AI Payload Inspection (DLP Engine)
+1. Build a POST route (/api/inspect/analyze) protected by JWT.
+2. The endpoint receives payloadText (e.g., raw prompts, API payload strings).
+3. Integrate Google Gemini API (gemini-1.5-flash) on the backend to:
+   - Identify sensitive items (PII like names, emails, credit cards, or API keys).
+   - Return a sanitized version with placeholders (e.g., [REDACTED_EMAIL]).
+   - Categorize threat severity: LOW, MEDIUM, or HIGH.
+   - Provide a brief compliance rationale.
+4. Persist each inspection event in the database under an AuditLogs collection/table.
+
+### Feature C: Privacy & Threat Analytics Dashboard
+1. Endpoint GET /api/audit/stats to aggregate total threats intercepted, total PII redacted, and threat levels over time.
+2. Frontend /dashboard page built with React + Recharts:
+   - Top Stat Cards: Total Scans, PII Intercepted, Risk Score Index.
+   - Area/Line Chart: Real-time payload inspection threat levels over time.
+   - Table Component: Recent inspection logs with filtering by severity (HIGH, MEDIUM, LOW).
+
+### Feature D: Interactive Payload Inspector Tool
+1. Frontend /inspector page:
+   - A dual-pane playground. Left: Input text area for user test payloads. Right: Real-time sanitized AI output + detected threats breakdown.
+   - Submit button connected via Axios to /api/inspect/analyze.
+
+---
+
+## 5. ENVIRONMENT VARIABLES SETUP
+Provide .env.example templates for both subdirectories:
+
+*backend/.env.example*
+```env
+PORT=5000
+DATABASE_URL=your_supabase_or_mongodb_connection_string
+JWT_SECRET=super_secret_jwt_key_here
+GEMINI_API_KEY=your_google_gemini_api_key_here
+CLIENT_URL=http://localhost:5173
+6. EXECUTION INSTRUCTIONS
+Write code with clean separation of concerns, defensive error handling (try/catch), and standard REST API status codes.
+
+Ensure the code is production-ready so it can be deployed seamlessly to Vercel (frontend) and Render/Railway (backend).
+
+Include clear inline comments explaining how the Google Gemini API securely processes privacy audits inside the backend proxy layer.
+
+Begin by setting up the folder structure and configuration files first!
+
+
+---
+
+<ElicitationsGroup message="What would you like to build or generate next for TrustLens?">
+  <Elicitation label="Generate complete backend index.js & route handlers" query="Generate the complete backend source code including index.js, JWT middleware, Zod schemas, and Gemini DLP inspection routes for TrustLens."/>
+  <Elicitation label="Generate React dashboard & inspector frontend code" query="Provide the full React.js frontend code for the TrustLens Dashboard and Real-Time Payload Inspector using Vite, Tailwind CSS, and Recharts."/>
+  <Elicitation label="Create GitHub README & deployment guide" query="Write a comprehensive GitHub README.md for TrustLens complete with architecture flow, setup instructions, environment variable guides, and Vercel/Render deployment instructions."/>
+</ElicitationsGroup>
