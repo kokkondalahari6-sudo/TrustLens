@@ -6,7 +6,7 @@ import { Activity, ArrowLeft, ArrowRight, BarChart3, Check, ChevronDown, Clipboa
 import { jsPDF } from 'jspdf';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { useEffect, useMemo, useState } from 'react';
+import { Component, useEffect, useMemo, useState } from 'react';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 import NotFound from '@/pages/not-found';
 
@@ -27,7 +27,7 @@ const severityStyles: Record<Severity, { pill: string; dot: string; label: strin
 };
 
 function SeverityPill({ severity, small = false }: { severity: Severity; small?: boolean }) {
-  const style = severityStyles[severity];
+  const style = severityStyles[severity] ?? severityStyles.LOW;
   return <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 ${small ? 'py-0.5 text-[10px]' : 'py-1 text-[11px]'} font-mono-ui font-bold uppercase tracking-[.08em] ${style.pill}`} data-testid={`status-severity-${severity.toLowerCase()}`}><span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} />{style.label}</span>;
 }
 
@@ -35,7 +35,72 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
   return <div className="flex items-center gap-2.5" data-testid="brand-trustlens"><div className="relative flex h-8 w-8 items-center justify-center rounded-[10px] border border-[#51d9ed] bg-[#102d58] text-[#5fe8f3] shadow-[0_0_22px_rgba(48,210,238,.25)]"><ShieldCheck size={19} strokeWidth={2.4} /><span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border-2 border-[#070f24] bg-[#8c7cff]" /></div>{!compact && <span className="font-display text-[20px] font-bold tracking-[-.06em] text-[#ecf5ff]">trust<span className="text-[#51d9ed]">lens</span></span>}</div>;
 }
 
-function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boolean; setMobileOpen: (v: boolean) => void }) {
+type StoredUser = { id?: number; email: string };
+
+function getStoredUser(): StoredUser {
+  const fallback = { email: 'security@trustlens.app' };
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const stored = window.localStorage.getItem('trustlens_user');
+    if (!stored) return fallback;
+    const parsed = JSON.parse(stored) as Partial<StoredUser> | null;
+    if (!parsed || typeof parsed.email !== 'string' || !parsed.email.trim()) return fallback;
+    return {
+      ...(typeof parsed.id === 'number' ? { id: parsed.id } : {}),
+      email: parsed.email.trim(),
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function userLabel(user: StoredUser | null | undefined) {
+  const localPart = user?.email?.split('@')[0] || 'security';
+  return localPart
+    .split(/[._-]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ') || 'TrustLens user';
+}
+
+function userInitials(user: StoredUser | null | undefined) {
+  const name = userLabel(user).split(' ');
+  return name.slice(0, 2).map((part) => part.charAt(0)).join('').toUpperCase() || 'TL';
+}
+
+function ProfileMenu({ user, open, logoutPending, onToggle, onLogout }: {
+  user: StoredUser;
+  open: boolean;
+  logoutPending: boolean;
+  onToggle: () => void;
+  onLogout: () => void;
+}) {
+  return <div className="relative" data-profile-area="true">
+    <button type="button" aria-label="Open profile menu" aria-expanded={open} data-testid="button-profile" onClick={onToggle} className={`interactive-control flex items-center gap-2 rounded-xl p-1 transition hover:bg-[#e9e6dd] ${open ? 'bg-[#e9e6dd]' : ''}`}>
+      <div className={`flex h-8 w-8 items-center justify-center rounded-full bg-[#d6ad77] text-[10px] font-bold text-[#273c45] transition ${open ? 'scale-110 shadow-[0_0_16px_rgba(65,217,255,.45)]' : ''}`}>{userInitials(user)}</div>
+      <ChevronDown size={14} className={`text-[#58737a] transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+    </button>
+    {open && <div role="menu" data-testid="profile-menu" className="profile-menu-enter absolute right-0 top-11 z-50 w-56 overflow-hidden rounded-xl border border-[#254778] bg-[#09142d] p-1.5 shadow-[0_16px_40px_rgba(0,0,0,.3)]">
+      <div className="border-b border-[#1b3760] px-3 py-2.5">
+        <p className="flex items-center gap-2 text-xs font-bold text-[#eef6ff]"><UserRound size={13} className="text-[#5fe1ff]" />{userLabel(user)}</p>
+        <p className="mt-1 truncate text-[10px] text-[#7893ba]">{user?.email ?? 'Protected workspace'}</p>
+      </div>
+      <button type="button" role="menuitem" data-testid="button-logout" onClick={onLogout} disabled={logoutPending} className="interactive-control mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-[#ff9bb8] transition hover:bg-[#2b1633] disabled:cursor-wait disabled:opacity-70">
+        {logoutPending ? <><RefreshCw size={14} className="animate-spin" /> Signing out…</> : <><LogOut size={14} /> Log out</>}
+      </button>
+    </div>}
+  </div>;
+}
+
+function Sidebar({ mobileOpen, setMobileOpen, user, profileOpen, logoutPending, onToggleProfile, onLogout }: {
+  mobileOpen: boolean;
+  setMobileOpen: (v: boolean) => void;
+  user: StoredUser;
+  profileOpen: boolean;
+  logoutPending: boolean;
+  onToggleProfile: () => void;
+  onLogout: () => void;
+}) {
   const [location] = useLocation();
   const nav = [{ href: '/', label: 'Overview', icon: Gauge }, { href: '/inspector', label: 'Inspector', icon: FileSearch }, { href: '/reports', label: 'Audit reports', icon: BarChart3 }];
   return <aside className={`${mobileOpen ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-40 flex w-[258px] flex-col bg-[#112f40] text-[#e5f0ed] transition-transform duration-300 md:relative md:translate-x-0`} data-testid="sidebar">
@@ -43,31 +108,56 @@ function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boolean; setMobile
     <div className="px-5 pt-8"><p className="mb-3 px-3 font-mono-ui text-[9px] font-bold uppercase tracking-[.2em] text-[#91abb0]">Workspace</p>
       <nav className="space-y-1">{nav.map(({ href, label, icon: Icon }) => <Link key={href} href={href} onClick={() => setMobileOpen(false)} data-testid={`link-nav-${label.toLowerCase().replace(' ', '-')}`} className={`group flex items-center gap-3 rounded-lg px-3 py-3 text-[13px] font-semibold transition-colors ${location === href ? 'bg-[#24495a] text-[#a5e4ce]' : 'text-[#b6cacb] hover:bg-[#1b3c4d] hover:text-[#f1faf4]'}`}><Icon size={17} strokeWidth={location === href ? 2.2 : 1.8} /><span>{label}</span>{location === href && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#9ee1c9]" />}</Link>)}</nav>
     </div>
-    <div className="mt-auto border-t border-[#315061] p-5"><div className="rounded-xl border border-[#315061] bg-[#183b4c] p-3.5"><div className="mb-3 flex items-center justify-between"><span className="font-mono-ui text-[9px] uppercase tracking-[.18em] text-[#91abb0]">System status</span><span className="flex items-center gap-1.5 text-[10px] font-semibold text-[#9ee1c9]"><span className="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-[#9ee1c9]" />Operational</span></div><div className="flex items-center gap-2 text-[11px] text-[#b6cacb]"><Activity size={13} /> All inspection services online</div></div><div className="mt-5 flex items-center gap-3 px-1"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#d6ad77] text-[11px] font-bold text-[#273c45]">AR</div><div className="min-w-0"><p className="truncate text-xs font-semibold text-[#eef6ef]">Alex Rivera</p><p className="truncate text-[10px] text-[#91abb0]">Security engineer</p></div><ChevronDown size={14} className="ml-auto text-[#91abb0]" /></div></div>
+    <div className="mt-auto border-t border-[#315061] p-5"><div className="rounded-xl border border-[#315061] bg-[#183b4c] p-3.5"><div className="mb-3 flex items-center justify-between"><span className="font-mono-ui text-[9px] uppercase tracking-[.18em] text-[#91abb0]">System status</span><span className="flex items-center gap-1.5 text-[10px] font-semibold text-[#9ee1c9]"><span className="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-[#9ee1c9]" />Operational</span></div><div className="flex items-center gap-2 text-[11px] text-[#b6cacb]"><Activity size={13} /> All inspection services online</div></div><div className="relative mt-5" data-profile-area="true"><button type="button" aria-label="Open profile menu" aria-expanded={profileOpen} data-testid="button-sidebar-profile" onClick={onToggleProfile} className={`interactive-control flex w-full items-center gap-3 rounded-xl px-1 py-1 text-left transition hover:bg-[#1b3c4d] ${profileOpen ? 'bg-[#1b3c4d]' : ''}`}><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#d6ad77] text-[11px] font-bold text-[#273c45]">{userInitials(user)}</div><div className="min-w-0"><p className="truncate text-xs font-semibold text-[#eef6ef]">{userLabel(user)}</p><p className="truncate text-[10px] text-[#91abb0]">{user.email}</p></div><ChevronDown size={14} className={`ml-auto text-[#91abb0] transition-transform ${profileOpen ? 'rotate-180' : ''}`} /></button>{profileOpen && <div className="profile-menu-enter absolute bottom-12 left-0 z-50 w-56 overflow-hidden rounded-xl border border-[#254778] bg-[#09142d] p-1.5 shadow-[0_16px_40px_rgba(0,0,0,.3)]"><div className="border-b border-[#1b3760] px-3 py-2.5"><p className="text-xs font-bold text-[#eef6ff]">{userLabel(user)}</p><p className="mt-1 truncate text-[10px] text-[#7893ba]">{user.email}</p></div><button type="button" role="menuitem" data-testid="button-sidebar-logout" onClick={onLogout} disabled={logoutPending} className="interactive-control mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-[#ff9bb8] transition hover:bg-[#2b1633] disabled:cursor-wait disabled:opacity-70">{logoutPending ? <><RefreshCw size={14} className="animate-spin" /> Signing out…</> : <><LogOut size={14} /> Log out</>}</button></div>}</div></div>
   </aside>;
 }
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [logoutPending, setLogoutPending] = useState(false);
+  const [backPending, setBackPending] = useState(false);
+  const [user] = useState<StoredUser>(() => getStoredUser());
   const [location] = useLocation();
   const [, setLocation] = useLocation();
   const title = location === '/inspector' ? 'Payload inspector' : location === '/reports' ? 'Audit reports' : 'Overview';
   const goBack = () => {
+    if (backPending) return;
+    setBackPending(true);
     if (window.history.length > 1) {
-      window.history.back();
+      window.setTimeout(() => window.history.back(), 140);
     } else {
-      setLocation('/');
+      window.setTimeout(() => setLocation('/'), 140);
     }
   };
   const logout = () => {
-    window.localStorage.removeItem('trustlens_token');
-    queryClient.clear();
-    setProfileOpen(false);
-    setLocation('/login');
+    if (logoutPending) return;
+    setLogoutPending(true);
+    window.setTimeout(() => {
+      window.localStorage.removeItem('trustlens_token');
+      window.localStorage.removeItem('trustlens_user');
+      queryClient.clear();
+      setProfileOpen(false);
+      setLocation('/login');
+    }, 420);
   };
-  return <div className="noise flex min-h-[100dvh] bg-[#f3f0e7]"><Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />{mobileOpen && <button aria-label="Close navigation" data-testid="button-close-navigation" className="fixed inset-0 z-30 bg-[#112f40]/40 md:hidden" onClick={() => setMobileOpen(false)} /> }
-    <main className="min-w-0 flex-1"><header className="flex h-[84px] items-center justify-between border-b border-[#dedbd1] bg-[#f8f6ef]/90 px-5 backdrop-blur md:px-10"><div className="flex min-w-0 items-center gap-2 md:gap-3"><button aria-label="Go back" data-testid="button-go-back" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#254778] bg-[#09142d] text-[#91b5dc] transition hover:-translate-x-0.5 hover:border-[#41d9ff] hover:text-[#5fe1ff]" onClick={goBack}><ArrowLeft size={17} /></button><button aria-label="Open navigation" data-testid="button-open-navigation" className="rounded-lg p-2 text-[#42606a] hover:bg-[#e8e5db] md:hidden" onClick={() => setMobileOpen(true)}><Menu size={20} /></button><div className="min-w-0"><p className="font-mono-ui text-[9px] font-bold uppercase tracking-[.2em] text-[#799098]">TrustLens / {title}</p><h1 className="mt-1 truncate font-display text-[22px] font-bold text-[#183847]">{title}</h1></div></div><div className="flex items-center gap-3"><div className="hidden items-center gap-2 rounded-full border border-[#ddd9ce] bg-[#fdfbf5] px-3 py-1.5 text-[10px] font-semibold text-[#58737a] sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-[#53a47d]" />Protected workspace</div><button data-testid="button-help" className="hidden h-8 w-8 items-center justify-center rounded-full border border-[#dcd9d0] text-[#58737a] hover:bg-[#e9e6dd] sm:flex"><Info size={15} /></button><div className="relative"><button type="button" aria-label="Open profile menu" aria-expanded={profileOpen} data-testid="button-profile" onClick={() => setProfileOpen((open) => !open)} className="flex items-center gap-2 rounded-xl p-1 transition hover:bg-[#e8e5db]"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#d6ad77] text-[10px] font-bold text-[#273c45]">AR</div><ChevronDown size={14} className={`text-[#58737a] transition-transform ${profileOpen ? 'rotate-180' : ''}`} /></button>{profileOpen && <div role="menu" data-testid="profile-menu" className="absolute right-0 top-11 z-50 w-52 overflow-hidden rounded-xl border border-[#254778] bg-[#09142d] p-1.5 shadow-[0_16px_40px_rgba(0,0,0,.3)]"><div className="border-b border-[#1b3760] px-3 py-2.5"><p className="flex items-center gap-2 text-xs font-bold text-[#eef6ff]"><UserRound size={13} className="text-[#5fe1ff]" />Alex Rivera</p><p className="mt-1 text-[10px] text-[#7893ba]">Security engineer</p></div><button type="button" role="menuitem" data-testid="button-logout" onClick={logout} className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-[#ff9bb8] transition hover:bg-[#2b1633]"><LogOut size={14} /> Log out</button></div>}</div></div></header><div className="mx-auto max-w-[1440px] p-5 md:p-10">{children}</div></main>
+  useEffect(() => {
+    if (!profileOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setProfileOpen(false);
+    };
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!(event.target as HTMLElement).closest('[data-profile-area="true"]')) setProfileOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () => {
+      document.removeEventListener('keydown', closeOnEscape);
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+    };
+  }, [profileOpen]);
+  return <div className="noise flex min-h-[100dvh] bg-[#f3f0e7]"><Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} user={user} profileOpen={profileOpen} logoutPending={logoutPending} onToggleProfile={() => setProfileOpen((open) => !open)} onLogout={logout} />{mobileOpen && <button aria-label="Close navigation" data-testid="button-close-navigation" className="fixed inset-0 z-30 bg-[#112f40]/40 md:hidden" onClick={() => setMobileOpen(false)} /> }
+    <main className="min-w-0 flex-1"><header className="flex h-[84px] items-center justify-between border-b border-[#dedbd1] bg-[#f8f6ef]/90 px-5 backdrop-blur md:px-10"><div className="flex min-w-0 items-center gap-2 md:gap-3"><button aria-label="Go back" data-testid="button-go-back" className={`interactive-control flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#254778] bg-[#09142d] text-[#91b5dc] transition hover:-translate-x-0.5 hover:border-[#41d9ff] hover:text-[#5fe1ff] ${backPending ? 'pointer-events-none scale-90 border-[#41d9ff] text-[#5fe1ff]' : ''}`} onClick={goBack}>{backPending ? <RefreshCw size={16} className="animate-spin" /> : <ArrowLeft size={17} />}</button><button aria-label="Open navigation" data-testid="button-open-navigation" className="rounded-lg p-2 text-[#42606a] hover:bg-[#e8e5db] md:hidden" onClick={() => setMobileOpen(true)}><Menu size={20} /></button><div className="min-w-0"><p className="font-mono-ui text-[9px] font-bold uppercase tracking-[.2em] text-[#799098]">TrustLens / {title}</p><h1 className="mt-1 truncate font-display text-[22px] font-bold text-[#183847]">{title}</h1></div></div><div className="flex items-center gap-3"><div className="hidden items-center gap-2 rounded-full border border-[#ddd9ce] bg-[#fdfbf5] px-3 py-1.5 text-[10px] font-semibold text-[#58737a] sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-[#53a47d]" />Protected workspace</div><button data-testid="button-help" className="hidden h-8 w-8 items-center justify-center rounded-full border border-[#dcd9d0] text-[#58737a] hover:bg-[#e9e6dd] sm:flex"><Info size={15} /></button><ProfileMenu user={user} open={profileOpen} logoutPending={logoutPending} onToggle={() => setProfileOpen((open) => !open)} onLogout={logout} /></div></header><div className="mx-auto max-w-[1440px] p-5 md:p-10">{children}</div></main>
   </div>;
 }
 
@@ -84,7 +174,10 @@ function MetricCard({ label, value, detail, icon: Icon, tone = 'teal' }: { label
 }
 
 function MiniTimeline({ timeline }: { timeline: { label: string; scans: number; risk: number }[] }) {
-  const data = timeline.length ? timeline : [{ label: 'Mon', scans: 0, risk: 0 }, { label: 'Tue', scans: 0, risk: 0 }, { label: 'Wed', scans: 0, risk: 0 }, { label: 'Thu', scans: 0, risk: 0 }, { label: 'Fri', scans: 0, risk: 0 }];
+  const entries = Array.isArray(timeline)
+    ? timeline.filter((entry) => entry && typeof entry === 'object')
+    : [];
+  const data = entries.length ? entries : [{ label: 'Mon', scans: 0, risk: 0 }, { label: 'Tue', scans: 0, risk: 0 }, { label: 'Wed', scans: 0, risk: 0 }, { label: 'Thu', scans: 0, risk: 0 }, { label: 'Fri', scans: 0, risk: 0 }];
   const max = Math.max(...data.map((x) => x.scans), 1);
   return <div className="flex h-[190px] items-end gap-3 px-2 pb-7 pt-3">{data.slice(-7).map((item, i) => <div className="group relative flex h-full flex-1 flex-col justify-end" key={`${item.label}-${i}`}><div className="absolute bottom-[28px] left-1/2 h-[2px] w-full -translate-x-1/2 bg-[#b3dbc9]/70" /><div className="relative z-10 mx-auto w-full max-w-[28px] rounded-t-md bg-[#72bda4] transition-all duration-300 group-hover:bg-[#2f856c]" style={{ height: `${Math.max(8, (item.scans / max) * 112)}px` }}><span className="absolute -top-5 left-1/2 -translate-x-1/2 font-mono-ui text-[9px] font-bold text-[#4d7777] opacity-0 transition-opacity group-hover:opacity-100">{item.scans}</span></div><span className="absolute -bottom-1 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono-ui text-[9px] text-[#8b9b9d]">{item.label}</span></div>)}</div>;
 }
@@ -94,19 +187,20 @@ function Overview() {
   const logs = useGetAuditLogs({ severity: 'ALL' });
   const health = useHealthCheck();
   const stat = stats.data;
-  const logRows = logs.data ?? [];
+  const logRows = Array.isArray(logs.data) ? logs.data : [];
   return <div className="space-y-7"><div className="animate-rise flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><div className="mb-3 flex items-center gap-2 font-mono-ui text-[10px] font-bold uppercase tracking-[.18em] text-[#3f8c70]"><span className="h-px w-7 bg-[#76c6a9]" />Live signal</div><h2 className="font-display max-w-xl text-[36px] font-bold leading-[1.02] tracking-[-.07em] text-[#183847] md:text-[48px]">Keep private data<br /><span className="text-[#438d76]">inside the lines.</span></h2><p className="mt-4 max-w-lg text-sm leading-6 text-[#718488]">A clear view of every payload your team inspects, every risk caught, and every redaction made before data travels.</p></div><Link href="/inspector" data-testid="link-open-inspector" className="group flex w-fit items-center gap-2 rounded-xl bg-[#183f4f] px-4 py-3 text-xs font-bold text-[#f6f4eb] shadow-[0_5px_0_#0d2b38] transition hover:-translate-y-0.5 hover:shadow-[0_7px_0_#0d2b38]"><FileSearch size={15} /> Open inspector <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" /></Link></div>
     <QueryState loading={stats.isLoading} error={stats.isError} onRetry={() => stats.refetch()} label="metrics"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><MetricCard label="Total scans" value={stat?.totalScans ?? 0} detail="Across your workspace" icon={ClipboardCheck} /><MetricCard label="PII intercepted" value={stat?.piiIntercepted ?? 0} detail="Sensitive values redacted" icon={Fingerprint} tone="amber" /><MetricCard label="Privacy score" value={`${stat?.averagePrivacyScore ?? 100}/100`} detail="Average payload safety" icon={ShieldCheck} tone={(stat?.averagePrivacyScore ?? 100) < 60 ? 'coral' : 'teal'} /><MetricCard label="Protected" value={`${stat?.protectedPercent ?? 100}%`} detail="Scans scoring 80 or higher" icon={ShieldAlert} tone={(stat?.protectedPercent ?? 100) < 70 ? 'coral' : 'teal'} /></div></QueryState>
     <div className="grid gap-5 lg:grid-cols-[1.35fr_.65fr]"><section className="animate-rise delay-1 rounded-2xl border border-[#e1ded5] bg-[#faf9f3] p-5 paper-shadow"><div className="flex items-center justify-between"><div><p className="font-display text-lg font-bold text-[#183847]">Inspection activity</p><p className="mt-1 text-xs text-[#7a8c8f]">Scans and weighted risk over the last 7 days</p></div><div className="flex items-center gap-3 font-mono-ui text-[9px] uppercase tracking-[.1em] text-[#6f8589]"><span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#72bda4]" />Scans</span><span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#b3dbc9]" />Risk</span></div></div>{stats.isLoading ? <Skeleton className="mt-5 h-[190px]" /> : <MiniTimeline timeline={stat?.timeline ?? []} />}</section>
-      <section className="animate-rise delay-2 rounded-2xl border border-[#e1ded5] bg-[#183f4f] p-5 text-[#f4f5eb] shadow-[0_12px_30px_rgba(24,63,79,.12)]"><div className="flex items-center justify-between"><p className="font-display text-lg font-bold">Severity mix</p><BarChart3 size={17} className="text-[#9ee1c9]" /></div><p className="mt-1 text-xs text-[#9db5b4]">Prioritized signals from recent scans</p><div className="mt-7 space-y-4">{(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as Severity[]).map((key) => { const count = stat?.severityCounts?.[key] ?? 0; const total = stat ? Object.values(stat.severityCounts).reduce((a, b) => a + b, 0) : 0; return <div key={key}><div className="mb-2 flex items-center justify-between text-xs"><span className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${severityStyles[key].dot}`} />{severityStyles[key].label}</span><span className="font-mono-ui text-[10px] text-[#c2d6d0]">{count}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-[#2a5563]"><div className={`h-full rounded-full ${severityStyles[key].dot}`} style={{ width: `${total ? (count / total) * 100 : 3}%` }} /></div></div>; })}</div><Link href="/reports" data-testid="link-view-reports" className="mt-8 flex items-center justify-between border-t border-[#315b67] pt-4 text-xs font-semibold text-[#a5e4ce]">View full audit history <ArrowRight size={14} /></Link></section></div>
+       <section className="animate-rise delay-2 rounded-2xl border border-[#e1ded5] bg-[#183f4f] p-5 text-[#f4f5eb] shadow-[0_12px_30px_rgba(24,63,79,.12)]"><div className="flex items-center justify-between"><p className="font-display text-lg font-bold">Severity mix</p><BarChart3 size={17} className="text-[#9ee1c9]" /></div><p className="mt-1 text-xs text-[#9db5b4]">Prioritized signals from recent scans</p><div className="mt-7 space-y-4">{(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as Severity[]).map((key) => { const style = severityStyles[key] ?? severityStyles.LOW; const count = stat?.severityCounts?.[key] ?? 0; const counts = stat?.severityCounts ? Object.values(stat.severityCounts) : []; const total = counts.reduce((a, b) => a + b, 0); return <div key={key}><div className="mb-2 flex items-center justify-between text-xs"><span className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${style.dot}`} />{style.label}</span><span className="font-mono-ui text-[10px] text-[#c2d6d0]">{count}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-[#2a5563]"><div className={`h-full rounded-full ${style.dot}`} style={{ width: `${total ? (count / total) * 100 : 3}%` }} /></div></div>; })}</div><Link href="/reports" data-testid="link-view-reports" className="mt-8 flex items-center justify-between border-t border-[#315b67] pt-4 text-xs font-semibold text-[#a5e4ce]">View full audit history <ArrowRight size={14} /></Link></section></div>
     <section className="animate-rise delay-3 rounded-2xl border border-[#e1ded5] bg-[#faf9f3] paper-shadow"><div className="flex flex-col gap-3 border-b border-[#e7e4db] p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-display text-lg font-bold text-[#183847]">Recent audit activity</p><p className="mt-1 text-xs text-[#7a8c8f]">Most recent payload inspections across your team</p></div><Link href="/reports" data-testid="link-see-all-audits" className="flex items-center gap-1 text-xs font-bold text-[#328166]">See all <ArrowRight size={13} /></Link></div><QueryState loading={logs.isLoading} error={logs.isError} onRetry={() => logs.refetch()} label="audit activity"><AuditTable rows={logRows.slice(0, 5)} compact /></QueryState></section>
     <div className="flex items-center gap-2 text-[10px] text-[#8b9998]"><span className={`h-1.5 w-1.5 rounded-full ${health.isError ? 'bg-[#c9685e]' : 'bg-[#53a47d]'}`} /> API {health.isError ? 'connection unavailable' : 'connected'} · Last checked just now</div>
   </div>;
 }
 
 function AuditTable({ rows, compact = false }: { rows: any[]; compact?: boolean }) {
-  if (!rows.length) return <div className="flex flex-col items-center justify-center px-6 py-14 text-center"><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#e6f0eb] text-[#3b896f]"><Search size={18} /></div><p className="font-semibold text-[#31505b]">No inspections yet</p><p className="mt-1 text-xs text-[#7b8d8e]">Run your first payload through the inspector.</p><Link href="/inspector" data-testid="link-empty-start-inspection" className="mt-4 rounded-lg bg-[#183f4f] px-3 py-2 text-xs font-semibold text-white">Start inspection</Link></div>;
-  return <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left"><thead><tr className="border-b border-[#e7e4db] font-mono-ui text-[9px] uppercase tracking-[.14em] text-[#8a9a9b]"><th className="px-5 py-3 font-bold">Payload preview</th><th className="px-3 py-3 font-bold">Severity</th><th className="px-3 py-3 font-bold">Privacy</th><th className="px-3 py-3 font-bold">Signals</th><th className="px-3 py-3 font-bold">Time</th><th className="px-5 py-3 text-right font-bold">Inspected</th></tr></thead><tbody>{rows.map((row, i) => <tr key={row.id ?? i} data-testid={`row-audit-${row.id ?? i}`} className="border-b border-[#ebe8df] last:border-0 transition-colors hover:bg-[#f5f3eb]"><td className="max-w-[300px] px-5 py-4"><div className="flex items-center gap-3"><div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#e6f0eb] text-[#438d76]"><Terminal size={13} /></div><span className="truncate font-mono-ui text-[11px] text-[#385762]">{row.preview}</span></div></td><td className="px-3 py-4"><SeverityPill severity={row.severity} small /></td><td className="px-3 py-4"><span className={`font-mono-ui text-xs font-bold ${row.privacyScore < 60 ? 'text-[#a55047]' : row.privacyScore < 80 ? 'text-[#986822]' : 'text-[#287459]'}`}>{row.privacyScore}</span><span className="text-[10px] text-[#849394]">/100</span></td><td className="px-3 py-4 font-mono-ui text-xs text-[#506c73]">{row.threatCount}</td><td className="px-3 py-4 font-mono-ui text-xs text-[#506c73]">{row.processingTimeMs}ms</td><td className="px-5 py-4 text-right text-[11px] text-[#849394]">{formatDate(row.createdAt)}</td></tr>)}</tbody></table></div>;
+  const safeRows = Array.isArray(rows) ? rows.filter((row) => row && typeof row === 'object') : [];
+  if (!safeRows.length) return <div className="flex flex-col items-center justify-center px-6 py-14 text-center"><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#e6f0eb] text-[#3b896f]"><Search size={18} /></div><p className="font-semibold text-[#31505b]">No inspections yet</p><p className="mt-1 text-xs text-[#7b8d8e]">Run your first payload through the inspector.</p><Link href="/inspector" data-testid="link-empty-start-inspection" className="mt-4 rounded-lg bg-[#183f4f] px-3 py-2 text-xs font-semibold text-white">Start inspection</Link></div>;
+  return <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left"><thead><tr className="border-b border-[#e7e4db] font-mono-ui text-[9px] uppercase tracking-[.14em] text-[#8a9a9b]"><th className="px-5 py-3 font-bold">Payload preview</th><th className="px-3 py-3 font-bold">Severity</th><th className="px-3 py-3 font-bold">Privacy</th><th className="px-3 py-3 font-bold">Signals</th><th className="px-3 py-3 font-bold">Time</th><th className="px-5 py-3 text-right font-bold">Inspected</th></tr></thead><tbody>{safeRows.map((row, i) => <tr key={row.id ?? i} data-testid={`row-audit-${row.id ?? i}`} className="border-b border-[#ebe8df] last:border-0 transition-colors hover:bg-[#f5f3eb]"><td className="max-w-[300px] px-5 py-4"><div className="flex items-center gap-3"><div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#e6f0eb] text-[#438d76]"><Terminal size={13} /></div><span className="truncate font-mono-ui text-[11px] text-[#385762]">{row.preview ?? 'Inspection'}</span></div></td><td className="px-3 py-4"><SeverityPill severity={row.severity} small /></td><td className="px-3 py-4"><span className={`font-mono-ui text-xs font-bold ${row.privacyScore < 60 ? 'text-[#a55047]' : row.privacyScore < 80 ? 'text-[#986822]' : 'text-[#287459]'}`}>{row.privacyScore ?? 100}</span><span className="text-[10px] text-[#849394]">/100</span></td><td className="px-3 py-4 font-mono-ui text-xs text-[#506c73]">{row.threatCount ?? 0}</td><td className="px-3 py-4 font-mono-ui text-xs text-[#506c73]">{row.processingTimeMs ?? 0}ms</td><td className="px-5 py-4 text-right text-[11px] text-[#849394]">{formatDate(row.createdAt ?? '')}</td></tr>)}</tbody></table></div>;
 }
 
 function downloadReport(result: any) {
@@ -298,8 +392,9 @@ function Login() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const onSuccess = (session: { token: string }) => {
+    const onSuccess = (session: { token: string; user: StoredUser }) => {
       window.localStorage.setItem('trustlens_token', session.token);
+      window.localStorage.setItem('trustlens_user', JSON.stringify(session.user));
       setLocation('/');
     };
     if (isRegistering) {

@@ -161,6 +161,9 @@
   .paper-shadow { box-shadow: var(--shadow); }
   .lift-on-hover { transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
   .lift-on-hover:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .interactive-control { transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease, border-color 160ms ease, color 160ms ease; }
+  .interactive-control:active { transform: scale(.96); }
+  .profile-menu-enter { transform-origin: top right; animation: profile-menu-in 180ms cubic-bezier(.2,.8,.2,1) both; }
   .animate-rise { animation: rise 500ms cubic-bezier(.2,.8,.2,1) both; }
   .animate-pulse-soft { animation: pulse-soft 2.4s ease-in-out infinite; }
   .delay-1 { animation-delay: 70ms; }
@@ -269,6 +272,19 @@ input::placeholder, textarea::placeholder { color: #667da7 !important; }
 @keyframes pulse-soft {
   0%, 100% { opacity: .6; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.06); }
+}
+@keyframes profile-menu-in {
+  from { opacity: 0; transform: translateY(-6px) scale(.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
 }
 
 @media print {
