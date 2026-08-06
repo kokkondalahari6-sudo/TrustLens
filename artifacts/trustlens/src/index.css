@@ -433,6 +433,45 @@ input, textarea {
 }
 input::placeholder, textarea::placeholder { color: #8da8ce !important; }
 
+/* Assistant composer contrast: controls stay legible against the midnight shell. */
+.assistant-quick-prompt {
+  background: rgba(21, 55, 91, .92) !important;
+  border-color: rgba(150, 226, 255, .62) !important;
+  color: #d9f8ff !important;
+}
+.assistant-quick-prompt:hover {
+  background: rgba(31, 79, 123, .98) !important;
+  border-color: #b8f2ff !important;
+  color: #ffffff !important;
+}
+.assistant-composer {
+  background: #07132d !important;
+  border-color: rgba(224, 244, 255, .72) !important;
+  color: #f4f8ff !important;
+  box-shadow: inset 0 0 0 1px rgba(104, 174, 225, .12), 0 8px 24px rgba(0, 5, 19, .22);
+}
+.assistant-composer::placeholder { color: #b8cceb !important; }
+.assistant-composer:focus {
+  border-color: #b8f2ff !important;
+  box-shadow: 0 0 0 3px rgba(81, 217, 237, .18), 0 8px 24px rgba(0, 5, 19, .3);
+}
+.assistant-send {
+  background: linear-gradient(135deg, #168fd8, #5365e8) !important;
+  border: 1px solid rgba(218, 246, 255, .72);
+  color: #ffffff !important;
+  box-shadow: 0 5px 0 #0a2d5b, 0 0 22px rgba(49, 185, 255, .22);
+}
+.assistant-send:hover {
+  border-color: #ffffff;
+  box-shadow: 0 7px 0 #0a2d5b, 0 0 30px rgba(49, 185, 255, .4);
+}
+.assistant-send:disabled {
+  background: #29466f !important;
+  border-color: rgba(198, 220, 242, .5);
+  color: #d9e6f5 !important;
+  box-shadow: none;
+}
+
 @media print {
   body { background: white !important; }
   .noise::after, aside, header, button, nav { display: none !important; }
