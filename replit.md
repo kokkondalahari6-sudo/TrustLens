@@ -1,6 +1,6 @@
-# [Project name]
+# TrustLens
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+TrustLens is a privacy transparency and threat-audit platform that inspects payloads, redacts sensitive data, explains risk, and records security activity.
 
 ## Run & Operate
 
@@ -22,15 +22,23 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/trustlens` — React/Vite web experience with sign-in, dashboard, inspector, and audit reports
+- `artifacts/api-server` — Express API with auth, Gemini inspection, and audit endpoints
+- `lib/api-spec/openapi.yaml` — source of truth for generated API clients and validation
+- `lib/db/src/schema/index.ts` — Drizzle schema for TrustLens users and audit logs
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Payload inspection happens on the API server so the Gemini key never reaches the browser.
+- Audit records are scoped to the authenticated user and stored in PostgreSQL.
+- The browser stores only the short-lived bearer token and receives sanitized inspection output.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Create an account or sign in to a protected workspace.
+- Inspect freeform payloads for PII, credentials, and secrets.
+- Review redacted output, severity, threat signals, and compliance rationale.
+- Monitor scan volume, weighted risk, severity mix, and recent audit activity.
 
 ## User preferences
 

@@ -10,6 +10,12 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: inspection
+    description: Payload inspection operations
+  - name: audit
+    description: Security audit operations
 paths:
   /healthz:
     get:
@@ -24,6 +30,99 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Create a TrustLens account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "400":
+          description: Invalid registration
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Sign in to TrustLens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Authenticated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "401":
+          description: Invalid credentials
+  /inspect/analyze:
+    post:
+      operationId: analyzePayload
+      tags: [inspection]
+      summary: Inspect and redact a payload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InspectionInput"
+      responses:
+        "200":
+          description: Inspection result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InspectionResult"
+        "400":
+          description: Invalid payload
+  /audit/logs:
+    get:
+      operationId: getAuditLogs
+      tags: [audit]
+      summary: List recent inspection audit logs
+      parameters:
+        - name: severity
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ALL, LOW, MEDIUM, HIGH]
+      responses:
+        "200":
+          description: Audit log list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLog"
+  /audit/stats:
+    get:
+      operationId: getAuditStats
+      tags: [audit]
+      summary: Get dashboard audit metrics
+      responses:
+        "200":
+          description: Audit statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditStats"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +132,123 @@ components:
           type: string
       required:
         - status
+    RegisterInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+      required: [email, password]
+    LoginInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required: [email, password]
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+      required: [id, email]
+    AuthSession:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/AuthUser"
+      required: [token, user]
+    InspectionInput:
+      type: object
+      properties:
+        payloadText:
+          type: string
+          minLength: 1
+      required: [payloadText]
+    Threat:
+      type: object
+      properties:
+        type:
+          type: string
+        value:
+          type: string
+        severity:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        rationale:
+          type: string
+      required: [type, value, severity, rationale]
+    InspectionResult:
+      type: object
+      properties:
+        id:
+          type: integer
+        sanitizedText:
+          type: string
+        severity:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        threats:
+          type: array
+          items:
+            $ref: "#/components/schemas/Threat"
+        rationale:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, sanitizedText, severity, threats, rationale, createdAt]
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        preview:
+          type: string
+        severity:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        threatCount:
+          type: integer
+        piiCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, preview, severity, threatCount, piiCount, createdAt]
+    AuditStats:
+      type: object
+      properties:
+        totalScans:
+          type: integer
+        piiIntercepted:
+          type: integer
+        riskScore:
+          type: integer
+        severityCounts:
+          type: object
+          properties:
+            LOW: { type: integer }
+            MEDIUM: { type: integer }
+            HIGH: { type: integer }
+          required: [LOW, MEDIUM, HIGH]
+        timeline:
+          type: array
+          items:
+            type: object
+            properties:
+              label: { type: string }
+              scans: { type: integer }
+              risk: { type: integer }
+            required: [label, scans, risk]
+      required: [totalScans, piiIntercepted, riskScore, severityCounts, timeline]
 

@@ -1,0 +1,1 @@
+- [OpenAPI Zod compatibility](orval-zod-compatibility.md) — pin Orval's generated Zod output to the installed major version when the workspace uses Zod 3.

@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "TrustLens"
+description = "A privacy transparency and threat audit platform that inspects payloads, redacts sensitive data, explains risk, and tracks security activity over time."
+version = "1.0.0"
+id = "artifacts/trustlens"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19629
+
+[services.development]
+run = "pnpm --filter @workspace/trustlens run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/trustlens", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/trustlens/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19629"
+BASE_PATH = "/"
