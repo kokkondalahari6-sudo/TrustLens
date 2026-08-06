@@ -13,4 +13,5 @@ export const InspectionResultSeverity = {
   LOW: 'LOW',
   MEDIUM: 'MEDIUM',
   HIGH: 'HIGH',
+  CRITICAL: 'CRITICAL',
 } as const;

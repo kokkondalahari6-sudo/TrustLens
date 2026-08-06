@@ -12,6 +12,8 @@ export interface AuditStats {
   totalScans: number;
   piiIntercepted: number;
   riskScore: number;
+  averagePrivacyScore: number;
+  protectedPercent: number;
   severityCounts: AuditStatsSeverityCounts;
   timeline: AuditStatsTimelineItem[];
 }

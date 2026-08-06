@@ -37,8 +37,10 @@ TrustLens is a privacy transparency and threat-audit platform that inspects payl
 
 - Create an account or sign in to a protected workspace.
 - Inspect freeform payloads for PII, credentials, and secrets.
-- Review redacted output, severity, threat signals, and compliance rationale.
-- Monitor scan volume, weighted risk, severity mix, and recent audit activity.
+- Review before/after redacted output, privacy score, severity, confidence, and explainable detection rationale.
+- See compliance mappings, supported sensitive types, scan progress, processing time, and recent audit history.
+- Download sanitized TXT reports, print PDF-style reports, or copy the protected payload.
+- Monitor scan volume, weighted risk, protection coverage, severity mix, and recent audit activity.
 
 ## User preferences
 

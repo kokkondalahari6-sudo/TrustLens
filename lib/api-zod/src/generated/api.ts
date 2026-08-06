@@ -65,17 +65,32 @@ export const AnalyzePayloadBody = zod.object({
   "payloadText": zod.string().min(1)
 })
 
+export const analyzePayloadResponsePrivacyScoreMin = 0;
+export const analyzePayloadResponsePrivacyScoreMax = 100;
+
+export const analyzePayloadResponseThreatsItemConfidenceMin = 0;
+export const analyzePayloadResponseThreatsItemConfidenceMax = 100;
+
+export const analyzePayloadResponseProcessingTimeMsMin = 0;
+
+
+
 export const AnalyzePayloadResponse = zod.object({
   "id": zod.number().int(),
   "sanitizedText": zod.string(),
-  "severity": zod.enum(['LOW', 'MEDIUM', 'HIGH']),
+  "severity": zod.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
+  "privacyScore": zod.number().int().min(analyzePayloadResponsePrivacyScoreMin).max(analyzePayloadResponsePrivacyScoreMax),
   "threats": zod.array(zod.object({
   "type": zod.string(),
   "value": zod.string(),
-  "severity": zod.enum(['LOW', 'MEDIUM', 'HIGH']),
-  "rationale": zod.string()
+  "severity": zod.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
+  "confidence": zod.number().int().min(analyzePayloadResponseThreatsItemConfidenceMin).max(analyzePayloadResponseThreatsItemConfidenceMax),
+  "rationale": zod.string(),
+  "compliance": zod.array(zod.string())
 })),
   "rationale": zod.string(),
+  "compliance": zod.array(zod.string()),
+  "processingTimeMs": zod.number().int().min(analyzePayloadResponseProcessingTimeMsMin),
   "createdAt": zod.coerce.date()
 })
 
@@ -84,15 +99,24 @@ export const AnalyzePayloadResponse = zod.object({
  * @summary List recent inspection audit logs
  */
 export const GetAuditLogsQueryParams = zod.object({
-  "severity": zod.enum(['ALL', 'LOW', 'MEDIUM', 'HIGH']).optional()
+  "severity": zod.enum(['ALL', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).optional()
 })
+
+export const getAuditLogsResponsePrivacyScoreMin = 0;
+export const getAuditLogsResponsePrivacyScoreMax = 100;
+
+export const getAuditLogsResponseProcessingTimeMsMin = 0;
+
+
 
 export const GetAuditLogsResponseItem = zod.object({
   "id": zod.number().int(),
   "preview": zod.string(),
-  "severity": zod.enum(['LOW', 'MEDIUM', 'HIGH']),
+  "severity": zod.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
   "threatCount": zod.number().int(),
   "piiCount": zod.number().int(),
+  "privacyScore": zod.number().int().min(getAuditLogsResponsePrivacyScoreMin).max(getAuditLogsResponsePrivacyScoreMax),
+  "processingTimeMs": zod.number().int().min(getAuditLogsResponseProcessingTimeMsMin),
   "createdAt": zod.coerce.date()
 })
 export const GetAuditLogsResponse = zod.array(GetAuditLogsResponseItem)
@@ -105,10 +129,13 @@ export const GetAuditStatsResponse = zod.object({
   "totalScans": zod.number().int(),
   "piiIntercepted": zod.number().int(),
   "riskScore": zod.number().int(),
+  "averagePrivacyScore": zod.number().int(),
+  "protectedPercent": zod.number().int(),
   "severityCounts": zod.object({
   "LOW": zod.number().int(),
   "MEDIUM": zod.number().int(),
-  "HIGH": zod.number().int()
+  "HIGH": zod.number().int(),
+  "CRITICAL": zod.number().int()
 }),
   "timeline": zod.array(zod.object({
   "label": zod.string(),

@@ -11,5 +11,11 @@ export interface Threat {
   type: string;
   value: string;
   severity: ThreatSeverity;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  confidence: number;
   rationale: string;
+  compliance: string[];
 }

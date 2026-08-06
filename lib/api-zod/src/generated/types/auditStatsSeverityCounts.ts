@@ -10,4 +10,5 @@ export type AuditStatsSeverityCounts = {
   LOW: number;
   MEDIUM: number;
   HIGH: number;
+  CRITICAL: number;
 };

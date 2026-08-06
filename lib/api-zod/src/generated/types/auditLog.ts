@@ -13,5 +13,12 @@ export interface AuditLog {
   severity: AuditLogSeverity;
   threatCount: number;
   piiCount: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  privacyScore: number;
+  /** @minimum 0 */
+  processingTimeMs: number;
   createdAt: Date;
 }

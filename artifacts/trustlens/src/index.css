@@ -187,3 +187,11 @@
   0%, 100% { opacity: .6; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.06); }
 }
+
+@media print {
+  body { background: white !important; }
+  .noise::after, aside, header, button, nav { display: none !important; }
+  main { width: 100% !important; }
+  main > div { max-width: none !important; padding: 0 !important; }
+  section { break-inside: avoid; box-shadow: none !important; }
+}

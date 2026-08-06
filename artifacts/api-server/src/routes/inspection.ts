@@ -15,16 +15,21 @@ router.post("/inspect/analyze", authMiddleware, async (req: AuthenticatedRequest
     return;
   }
   try {
+    const startedAt = performance.now();
     const analysis = await inspectPayload(parsed.data.payloadText);
+    const processingTimeMs = Math.max(1, Math.round(performance.now() - startedAt));
     const [log] = await db.insert(auditLogsTable).values({
       userId,
       preview: parsed.data.payloadText.slice(0, 140),
       sanitizedText: analysis.sanitizedText,
       severity: analysis.severity,
+      privacyScore: analysis.privacyScore,
+      processingTimeMs,
       threats: analysis.threats,
       rationale: analysis.rationale,
+      compliance: analysis.compliance,
     }).returning();
-    res.json(AnalyzePayloadResponse.parse({ id: log.id, ...analysis, createdAt: log.createdAt }));
+    res.json(AnalyzePayloadResponse.parse({ id: log.id, ...analysis, processingTimeMs, createdAt: log.createdAt }));
   } catch (error) {
     req.log.error({ error }, "Payload inspection failed");
     res.status(503).json({ error: "The inspection engine is unavailable. Please try again." });

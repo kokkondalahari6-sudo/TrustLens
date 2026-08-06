@@ -5,7 +5,7 @@ import { GetAuditLogsQueryParams, GetAuditLogsResponse, GetAuditStatsResponse } 
 import { authMiddleware, requireUserId, type AuthenticatedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
-const severities = new Set(["LOW", "MEDIUM", "HIGH"]);
+const severities = new Set(["LOW", "MEDIUM", "HIGH", "CRITICAL"]);
 
 router.get("/audit/logs", authMiddleware, async (req: AuthenticatedRequest, res): Promise<void> => {
   const userId = requireUserId(req, res);
@@ -26,6 +26,8 @@ router.get("/audit/logs", authMiddleware, async (req: AuthenticatedRequest, res)
     severity: row.severity,
     threatCount: row.threats.length,
     piiCount: row.threats.length,
+    privacyScore: row.privacyScore,
+    processingTimeMs: row.processingTimeMs,
     createdAt: row.createdAt,
   }))));
 });
@@ -34,21 +36,31 @@ router.get("/audit/stats", authMiddleware, async (req: AuthenticatedRequest, res
   const userId = requireUserId(req, res);
   if (!userId) return;
   const rows = await db.select().from(auditLogsTable).where(eq(auditLogsTable.userId, userId)).orderBy(desc(auditLogsTable.createdAt)).limit(100);
-  const severityCounts = { LOW: 0, MEDIUM: 0, HIGH: 0 };
+  const severityCounts = { LOW: 0, MEDIUM: 0, HIGH: 0, CRITICAL: 0 };
   let piiIntercepted = 0;
+  let privacyTotal = 0;
   for (const row of rows) {
     if (severities.has(row.severity)) severityCounts[row.severity as keyof typeof severityCounts] += 1;
     piiIntercepted += row.threats.length;
+    privacyTotal += row.privacyScore;
   }
-  const riskScore = rows.length ? Math.round(rows.reduce((sum, row) => sum + (row.severity === "HIGH" ? 100 : row.severity === "MEDIUM" ? 55 : 12), 0) / rows.length) : 0;
+  const riskScore = rows.length ? Math.round(rows.reduce((sum, row) => sum + (row.severity === "CRITICAL" ? 100 : row.severity === "HIGH" ? 78 : row.severity === "MEDIUM" ? 55 : 12), 0) / rows.length) : 0;
   const timeline = Array.from({ length: 7 }, (_, index) => {
     const date = new Date();
     date.setDate(date.getDate() - (6 - index));
     const label = date.toLocaleDateString("en-US", { weekday: "short" });
     const dayRows = rows.filter((row) => row.createdAt.toDateString() === date.toDateString());
-    return { label, scans: dayRows.length, risk: dayRows.length ? Math.round(dayRows.reduce((sum, row) => sum + (row.severity === "HIGH" ? 100 : row.severity === "MEDIUM" ? 55 : 12), 0) / dayRows.length) : 0 };
+    return { label, scans: dayRows.length, risk: dayRows.length ? Math.round(dayRows.reduce((sum, row) => sum + (row.severity === "CRITICAL" ? 100 : row.severity === "HIGH" ? 78 : row.severity === "MEDIUM" ? 55 : 12), 0) / dayRows.length) : 0 };
   });
-  res.json(GetAuditStatsResponse.parse({ totalScans: rows.length, piiIntercepted, riskScore, severityCounts, timeline }));
+  res.json(GetAuditStatsResponse.parse({
+    totalScans: rows.length,
+    piiIntercepted,
+    riskScore,
+    averagePrivacyScore: rows.length ? Math.round(privacyTotal / rows.length) : 100,
+    protectedPercent: rows.length ? Math.round((rows.filter((row) => row.privacyScore >= 80).length / rows.length) * 100) : 100,
+    severityCounts,
+    timeline,
+  }));
 });
 
 export default router;

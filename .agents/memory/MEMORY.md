@@ -1,1 +1,3 @@
 - [OpenAPI Zod compatibility](orval-zod-compatibility.md) — pin Orval's generated Zod output to the installed major version when the workspace uses Zod 3.
+- [Gemini inspection resilience](gemini-inspection-resilience.md) — keep local explainable safety checks as a bounded fallback when Gemini model availability or quota interrupts scans.
+- [PDF inspection privacy](pdf-inspection-privacy.md) — extract PDF text in the browser and send only text to the inspection API; original files are not retained.

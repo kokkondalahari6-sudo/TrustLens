@@ -50,10 +50,20 @@ export const auditLogsTable = pgTable("trustlens_audit_logs", {
   preview: text("preview").notNull(),
   sanitizedText: text("sanitized_text").notNull(),
   severity: text("severity").notNull(),
+  privacyScore: integer("privacy_score").notNull().default(100),
+  processingTimeMs: integer("processing_time_ms").notNull().default(0),
   threats: jsonb("threats").notNull().$type<
-    Array<{ type: string; value: string; severity: string; rationale: string }>
+    Array<{
+      type: string;
+      value: string;
+      severity: string;
+      confidence: number;
+      rationale: string;
+      compliance: string[];
+    }>
   >(),
   rationale: text("rationale").notNull(),
+  compliance: jsonb("compliance").notNull().$type<string[]>().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -42,13 +42,20 @@ export const ThreatSeverity = {
   LOW: 'LOW',
   MEDIUM: 'MEDIUM',
   HIGH: 'HIGH',
+  CRITICAL: 'CRITICAL',
 } as const;
 
 export interface Threat {
   type: string;
   value: string;
   severity: ThreatSeverity;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  confidence: number;
   rationale: string;
+  compliance: string[];
 }
 
 export type InspectionResultSeverity = typeof InspectionResultSeverity[keyof typeof InspectionResultSeverity];
@@ -58,14 +65,23 @@ export const InspectionResultSeverity = {
   LOW: 'LOW',
   MEDIUM: 'MEDIUM',
   HIGH: 'HIGH',
+  CRITICAL: 'CRITICAL',
 } as const;
 
 export interface InspectionResult {
   id: number;
   sanitizedText: string;
   severity: InspectionResultSeverity;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  privacyScore: number;
   threats: Threat[];
   rationale: string;
+  compliance: string[];
+  /** @minimum 0 */
+  processingTimeMs: number;
   createdAt: string;
 }
 
@@ -76,6 +92,7 @@ export const AuditLogSeverity = {
   LOW: 'LOW',
   MEDIUM: 'MEDIUM',
   HIGH: 'HIGH',
+  CRITICAL: 'CRITICAL',
 } as const;
 
 export interface AuditLog {
@@ -84,6 +101,13 @@ export interface AuditLog {
   severity: AuditLogSeverity;
   threatCount: number;
   piiCount: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  privacyScore: number;
+  /** @minimum 0 */
+  processingTimeMs: number;
   createdAt: string;
 }
 
@@ -91,6 +115,7 @@ export type AuditStatsSeverityCounts = {
   LOW: number;
   MEDIUM: number;
   HIGH: number;
+  CRITICAL: number;
 };
 
 export type AuditStatsTimelineItem = {
@@ -103,6 +128,8 @@ export interface AuditStats {
   totalScans: number;
   piiIntercepted: number;
   riskScore: number;
+  averagePrivacyScore: number;
+  protectedPercent: number;
   severityCounts: AuditStatsSeverityCounts;
   timeline: AuditStatsTimelineItem[];
 }
@@ -119,5 +146,6 @@ export const GetAuditLogsSeverity = {
   LOW: 'LOW',
   MEDIUM: 'MEDIUM',
   HIGH: 'HIGH',
+  CRITICAL: 'CRITICAL',
 } as const;
 

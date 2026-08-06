@@ -101,7 +101,7 @@ paths:
           required: false
           schema:
             type: string
-            enum: [ALL, LOW, MEDIUM, HIGH]
+            enum: [ALL, LOW, MEDIUM, HIGH, CRITICAL]
       responses:
         "200":
           description: Audit log list
@@ -183,10 +183,18 @@ components:
           type: string
         severity:
           type: string
-          enum: [LOW, MEDIUM, HIGH]
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        confidence:
+          type: integer
+          minimum: 0
+          maximum: 100
         rationale:
           type: string
-      required: [type, value, severity, rationale]
+        compliance:
+          type: array
+          items:
+            type: string
+      required: [type, value, severity, confidence, rationale, compliance]
     InspectionResult:
       type: object
       properties:
@@ -196,17 +204,28 @@ components:
           type: string
         severity:
           type: string
-          enum: [LOW, MEDIUM, HIGH]
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        privacyScore:
+          type: integer
+          minimum: 0
+          maximum: 100
         threats:
           type: array
           items:
             $ref: "#/components/schemas/Threat"
         rationale:
           type: string
+        compliance:
+          type: array
+          items:
+            type: string
+        processingTimeMs:
+          type: integer
+          minimum: 0
         createdAt:
           type: string
           format: date-time
-      required: [id, sanitizedText, severity, threats, rationale, createdAt]
+      required: [id, sanitizedText, severity, privacyScore, threats, rationale, compliance, processingTimeMs, createdAt]
     AuditLog:
       type: object
       properties:
@@ -216,15 +235,22 @@ components:
           type: string
         severity:
           type: string
-          enum: [LOW, MEDIUM, HIGH]
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
         threatCount:
           type: integer
         piiCount:
           type: integer
+        privacyScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        processingTimeMs:
+          type: integer
+          minimum: 0
         createdAt:
           type: string
           format: date-time
-      required: [id, preview, severity, threatCount, piiCount, createdAt]
+      required: [id, preview, severity, threatCount, piiCount, privacyScore, processingTimeMs, createdAt]
     AuditStats:
       type: object
       properties:
@@ -234,13 +260,18 @@ components:
           type: integer
         riskScore:
           type: integer
+        averagePrivacyScore:
+          type: integer
+        protectedPercent:
+          type: integer
         severityCounts:
           type: object
           properties:
             LOW: { type: integer }
             MEDIUM: { type: integer }
             HIGH: { type: integer }
-          required: [LOW, MEDIUM, HIGH]
+            CRITICAL: { type: integer }
+          required: [LOW, MEDIUM, HIGH, CRITICAL]
         timeline:
           type: array
           items:
@@ -250,5 +281,5 @@ components:
               scans: { type: integer }
               risk: { type: integer }
             required: [label, scans, risk]
-      required: [totalScans, piiIntercepted, riskScore, severityCounts, timeline]
+      required: [totalScans, piiIntercepted, riskScore, averagePrivacyScore, protectedPercent, severityCounts, timeline]
 

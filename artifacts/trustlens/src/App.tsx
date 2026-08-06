@@ -2,23 +2,28 @@ import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/reac
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { getGetAuditLogsQueryKey, getGetAuditStatsQueryKey, setAuthTokenGetter, useAnalyzePayload, useGetAuditLogs, useGetAuditStats, useHealthCheck, useLogin, useRegister } from '@workspace/api-client-react';
-import { Activity, ArrowRight, BarChart3, Check, ChevronDown, ClipboardCheck, Clock3, Copy, Database, FileSearch, Fingerprint, Gauge, KeyRound, LockKeyhole, LogIn, Menu, RefreshCw, Search, ShieldCheck, Sparkles, Terminal, X, AlertTriangle, CircleAlert, CircleCheck, Info } from 'lucide-react';
+import { Activity, ArrowRight, BarChart3, Check, ChevronDown, ClipboardCheck, Clock3, Copy, Download, FileDown, FileSearch, FileText, Fingerprint, Gauge, KeyRound, LockKeyhole, LogIn, Menu, RefreshCw, Search, ShieldCheck, ShieldAlert, Sparkles, Terminal, Timer, Upload, X, AlertTriangle, CircleAlert, CircleCheck, Info } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 import NotFound from '@/pages/not-found';
 
 const queryClient = new QueryClient();
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 setAuthTokenGetter(() => {
   if (typeof window === 'undefined') return null;
   return window.localStorage.getItem('trustlens_token');
 });
 
-type Severity = 'LOW' | 'MEDIUM' | 'HIGH';
+type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 const severityStyles: Record<Severity, { pill: string; dot: string; label: string }> = {
   LOW: { pill: 'bg-[#e3f0e7] text-[#267052] border-[#b9d9c6]', dot: 'bg-[#4ca177]', label: 'Low' },
   MEDIUM: { pill: 'bg-[#fff0d3] text-[#95631d] border-[#efd19c]', dot: 'bg-[#d99a37]', label: 'Medium' },
   HIGH: { pill: 'bg-[#f8dfdc] text-[#a4473e] border-[#e5b8b2]', dot: 'bg-[#c9685e]', label: 'High' },
+  CRITICAL: { pill: 'bg-[#eadcf1] text-[#713e85] border-[#cfafd9]', dot: 'bg-[#9145a8]', label: 'Critical' },
 };
 
 function SeverityPill({ severity, small = false }: { severity: Severity; small?: boolean }) {
@@ -76,9 +81,9 @@ function Overview() {
   const stat = stats.data;
   const logRows = logs.data ?? [];
   return <div className="space-y-7"><div className="animate-rise flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><div className="mb-3 flex items-center gap-2 font-mono-ui text-[10px] font-bold uppercase tracking-[.18em] text-[#3f8c70]"><span className="h-px w-7 bg-[#76c6a9]" />Live signal</div><h2 className="font-display max-w-xl text-[36px] font-bold leading-[1.02] tracking-[-.07em] text-[#183847] md:text-[48px]">Keep private data<br /><span className="text-[#438d76]">inside the lines.</span></h2><p className="mt-4 max-w-lg text-sm leading-6 text-[#718488]">A clear view of every payload your team inspects, every risk caught, and every redaction made before data travels.</p></div><Link href="/inspector" data-testid="link-open-inspector" className="group flex w-fit items-center gap-2 rounded-xl bg-[#183f4f] px-4 py-3 text-xs font-bold text-[#f6f4eb] shadow-[0_5px_0_#0d2b38] transition hover:-translate-y-0.5 hover:shadow-[0_7px_0_#0d2b38]"><FileSearch size={15} /> Open inspector <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" /></Link></div>
-    <QueryState loading={stats.isLoading} error={stats.isError} onRetry={() => stats.refetch()} label="metrics"><div className="grid gap-4 md:grid-cols-3"><MetricCard label="Total scans" value={stat?.totalScans ?? 0} detail="Across your workspace" icon={ClipboardCheck} /><MetricCard label="PII intercepted" value={stat?.piiIntercepted ?? 0} detail="Sensitive values redacted" icon={Fingerprint} tone="amber" /><MetricCard label="Risk score" value={`${stat?.riskScore ?? 0}/100`} detail="Weighted by severity and volume" icon={ShieldCheck} tone={(stat?.riskScore ?? 0) > 60 ? 'coral' : 'teal'} /></div></QueryState>
+    <QueryState loading={stats.isLoading} error={stats.isError} onRetry={() => stats.refetch()} label="metrics"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><MetricCard label="Total scans" value={stat?.totalScans ?? 0} detail="Across your workspace" icon={ClipboardCheck} /><MetricCard label="PII intercepted" value={stat?.piiIntercepted ?? 0} detail="Sensitive values redacted" icon={Fingerprint} tone="amber" /><MetricCard label="Privacy score" value={`${stat?.averagePrivacyScore ?? 100}/100`} detail="Average payload safety" icon={ShieldCheck} tone={(stat?.averagePrivacyScore ?? 100) < 60 ? 'coral' : 'teal'} /><MetricCard label="Protected" value={`${stat?.protectedPercent ?? 100}%`} detail="Scans scoring 80 or higher" icon={ShieldAlert} tone={(stat?.protectedPercent ?? 100) < 70 ? 'coral' : 'teal'} /></div></QueryState>
     <div className="grid gap-5 lg:grid-cols-[1.35fr_.65fr]"><section className="animate-rise delay-1 rounded-2xl border border-[#e1ded5] bg-[#faf9f3] p-5 paper-shadow"><div className="flex items-center justify-between"><div><p className="font-display text-lg font-bold text-[#183847]">Inspection activity</p><p className="mt-1 text-xs text-[#7a8c8f]">Scans and weighted risk over the last 7 days</p></div><div className="flex items-center gap-3 font-mono-ui text-[9px] uppercase tracking-[.1em] text-[#6f8589]"><span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#72bda4]" />Scans</span><span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-[#b3dbc9]" />Risk</span></div></div>{stats.isLoading ? <Skeleton className="mt-5 h-[190px]" /> : <MiniTimeline timeline={stat?.timeline ?? []} />}</section>
-      <section className="animate-rise delay-2 rounded-2xl border border-[#e1ded5] bg-[#183f4f] p-5 text-[#f4f5eb] shadow-[0_12px_30px_rgba(24,63,79,.12)]"><div className="flex items-center justify-between"><p className="font-display text-lg font-bold">Severity mix</p><BarChart3 size={17} className="text-[#9ee1c9]" /></div><p className="mt-1 text-xs text-[#9db5b4]">What TrustLens is seeing</p><div className="mt-7 space-y-5">{(['HIGH', 'MEDIUM', 'LOW'] as Severity[]).map((key) => { const count = stat?.severityCounts?.[key] ?? 0; const total = stat ? Object.values(stat.severityCounts).reduce((a, b) => a + b, 0) : 0; return <div key={key}><div className="mb-2 flex items-center justify-between text-xs"><span className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${severityStyles[key].dot}`} />{severityStyles[key].label}</span><span className="font-mono-ui text-[10px] text-[#c2d6d0]">{count}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-[#2a5563]"><div className={`h-full rounded-full ${severityStyles[key].dot}`} style={{ width: `${total ? (count / total) * 100 : 3}%` }} /></div></div>; })}</div><Link href="/reports" data-testid="link-view-reports" className="mt-8 flex items-center justify-between border-t border-[#315b67] pt-4 text-xs font-semibold text-[#a5e4ce]">View full audit history <ArrowRight size={14} /></Link></section></div>
+      <section className="animate-rise delay-2 rounded-2xl border border-[#e1ded5] bg-[#183f4f] p-5 text-[#f4f5eb] shadow-[0_12px_30px_rgba(24,63,79,.12)]"><div className="flex items-center justify-between"><p className="font-display text-lg font-bold">Severity mix</p><BarChart3 size={17} className="text-[#9ee1c9]" /></div><p className="mt-1 text-xs text-[#9db5b4]">Prioritized signals from recent scans</p><div className="mt-7 space-y-4">{(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as Severity[]).map((key) => { const count = stat?.severityCounts?.[key] ?? 0; const total = stat ? Object.values(stat.severityCounts).reduce((a, b) => a + b, 0) : 0; return <div key={key}><div className="mb-2 flex items-center justify-between text-xs"><span className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${severityStyles[key].dot}`} />{severityStyles[key].label}</span><span className="font-mono-ui text-[10px] text-[#c2d6d0]">{count}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-[#2a5563]"><div className={`h-full rounded-full ${severityStyles[key].dot}`} style={{ width: `${total ? (count / total) * 100 : 3}%` }} /></div></div>; })}</div><Link href="/reports" data-testid="link-view-reports" className="mt-8 flex items-center justify-between border-t border-[#315b67] pt-4 text-xs font-semibold text-[#a5e4ce]">View full audit history <ArrowRight size={14} /></Link></section></div>
     <section className="animate-rise delay-3 rounded-2xl border border-[#e1ded5] bg-[#faf9f3] paper-shadow"><div className="flex flex-col gap-3 border-b border-[#e7e4db] p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-display text-lg font-bold text-[#183847]">Recent audit activity</p><p className="mt-1 text-xs text-[#7a8c8f]">Most recent payload inspections across your team</p></div><Link href="/reports" data-testid="link-see-all-audits" className="flex items-center gap-1 text-xs font-bold text-[#328166]">See all <ArrowRight size={13} /></Link></div><QueryState loading={logs.isLoading} error={logs.isError} onRetry={() => logs.refetch()} label="audit activity"><AuditTable rows={logRows.slice(0, 5)} compact /></QueryState></section>
     <div className="flex items-center gap-2 text-[10px] text-[#8b9998]"><span className={`h-1.5 w-1.5 rounded-full ${health.isError ? 'bg-[#c9685e]' : 'bg-[#53a47d]'}`} /> API {health.isError ? 'connection unavailable' : 'connected'} · Last checked just now</div>
   </div>;
@@ -86,31 +91,182 @@ function Overview() {
 
 function AuditTable({ rows, compact = false }: { rows: any[]; compact?: boolean }) {
   if (!rows.length) return <div className="flex flex-col items-center justify-center px-6 py-14 text-center"><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#e6f0eb] text-[#3b896f]"><Search size={18} /></div><p className="font-semibold text-[#31505b]">No inspections yet</p><p className="mt-1 text-xs text-[#7b8d8e]">Run your first payload through the inspector.</p><Link href="/inspector" data-testid="link-empty-start-inspection" className="mt-4 rounded-lg bg-[#183f4f] px-3 py-2 text-xs font-semibold text-white">Start inspection</Link></div>;
-  return <div className="overflow-x-auto"><table className="w-full min-w-[650px] text-left"><thead><tr className="border-b border-[#e7e4db] font-mono-ui text-[9px] uppercase tracking-[.14em] text-[#8a9a9b]"><th className="px-5 py-3 font-bold">Payload preview</th><th className="px-3 py-3 font-bold">Severity</th><th className="px-3 py-3 font-bold">Threats</th><th className="px-3 py-3 font-bold">PII</th><th className="px-5 py-3 text-right font-bold">Inspected</th></tr></thead><tbody>{rows.map((row, i) => <tr key={row.id ?? i} data-testid={`row-audit-${row.id ?? i}`} className="border-b border-[#ebe8df] last:border-0 transition-colors hover:bg-[#f5f3eb]"><td className="max-w-[300px] px-5 py-4"><div className="flex items-center gap-3"><div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#e6f0eb] text-[#438d76]"><Terminal size={13} /></div><span className="truncate font-mono-ui text-[11px] text-[#385762]">{row.preview}</span></div></td><td className="px-3 py-4"><SeverityPill severity={row.severity} small /></td><td className="px-3 py-4 font-mono-ui text-xs text-[#506c73]">{row.threatCount}</td><td className="px-3 py-4 font-mono-ui text-xs text-[#506c73]">{row.piiCount}</td><td className="px-5 py-4 text-right text-[11px] text-[#849394]">{formatDate(row.createdAt)}</td></tr>)}</tbody></table></div>;
+  return <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left"><thead><tr className="border-b border-[#e7e4db] font-mono-ui text-[9px] uppercase tracking-[.14em] text-[#8a9a9b]"><th className="px-5 py-3 font-bold">Payload preview</th><th className="px-3 py-3 font-bold">Severity</th><th className="px-3 py-3 font-bold">Privacy</th><th className="px-3 py-3 font-bold">Signals</th><th className="px-3 py-3 font-bold">Time</th><th className="px-5 py-3 text-right font-bold">Inspected</th></tr></thead><tbody>{rows.map((row, i) => <tr key={row.id ?? i} data-testid={`row-audit-${row.id ?? i}`} className="border-b border-[#ebe8df] last:border-0 transition-colors hover:bg-[#f5f3eb]"><td className="max-w-[300px] px-5 py-4"><div className="flex items-center gap-3"><div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#e6f0eb] text-[#438d76]"><Terminal size={13} /></div><span className="truncate font-mono-ui text-[11px] text-[#385762]">{row.preview}</span></div></td><td className="px-3 py-4"><SeverityPill severity={row.severity} small /></td><td className="px-3 py-4"><span className={`font-mono-ui text-xs font-bold ${row.privacyScore < 60 ? 'text-[#a55047]' : row.privacyScore < 80 ? 'text-[#986822]' : 'text-[#287459]'}`}>{row.privacyScore}</span><span className="text-[10px] text-[#849394]">/100</span></td><td className="px-3 py-4 font-mono-ui text-xs text-[#506c73]">{row.threatCount}</td><td className="px-3 py-4 font-mono-ui text-xs text-[#506c73]">{row.processingTimeMs}ms</td><td className="px-5 py-4 text-right text-[11px] text-[#849394]">{formatDate(row.createdAt)}</td></tr>)}</tbody></table></div>;
+}
+
+function downloadReport(result: any) {
+  const lines = [
+    'TrustLens — Sanitized inspection report',
+    `Inspection #${result.id}`,
+    `Severity: ${result.severity}`,
+    `Privacy score: ${result.privacyScore}/100`,
+    `Processing time: ${result.processingTimeMs}ms`,
+    '',
+    'PROTECTED PAYLOAD',
+    result.sanitizedText,
+    '',
+    'WHY THIS WAS DETECTED',
+    result.rationale,
+    '',
+    'DETECTED SIGNALS',
+    ...(result.threats?.length
+      ? result.threats.map((threat: any) => `${threat.type} — ${threat.confidence}% confidence — ${threat.severity}\n${threat.value}\n${threat.rationale}`)
+      : ['No sensitive signals detected.']),
+    '',
+    'COMPLIANCE MAPPING',
+    ...(result.compliance?.length ? result.compliance : ['No compliance frameworks mapped.']),
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `trustlens-inspection-${result.id}.txt`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function downloadPdfReport(result: any) {
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const margin = 48;
+  const width = 595 - margin * 2;
+  let y = 54;
+  const addHeading = (text: string) => {
+    doc.setTextColor(24, 63, 79);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text(text, margin, y);
+    y += 24;
+  };
+  const addText = (text: string, size = 10, color: [number, number, number] = [83, 107, 112]) => {
+    doc.setTextColor(...color);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(size);
+    const lines = doc.splitTextToSize(String(text || '—'), width);
+    for (const line of lines) {
+      if (y > 760) {
+        doc.addPage();
+        y = 54;
+      }
+      doc.text(line, margin, y);
+      y += size + 5;
+    }
+    y += 6;
+  };
+  doc.setFillColor(17, 47, 64);
+  doc.rect(0, 0, 595, 110, 'F');
+  doc.setTextColor(158, 225, 201);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(24);
+  doc.text('trustlens', margin, 55);
+  doc.setTextColor(237, 246, 237);
+  doc.setFontSize(11);
+  doc.text('Sanitized inspection report', margin, 78);
+  y = 145;
+  addHeading(`Inspection #${result.id}`);
+  addText(`Severity: ${result.severity}   ·   Privacy score: ${result.privacyScore}/100   ·   Processing time: ${result.processingTimeMs}ms`, 10, [63, 140, 112]);
+  addHeading('Protected payload');
+  addText(result.sanitizedText, 9, [53, 96, 82]);
+  addHeading('Why this was detected');
+  addText(result.rationale);
+  addHeading('Detected signals');
+  if (result.threats?.length) {
+    result.threats.forEach((threat: any) => {
+      addText(`${threat.type} · ${threat.severity} · ${threat.confidence}% confidence`, 10, [49, 82, 92]);
+      addText(`${threat.value}\n${threat.rationale}`, 9);
+    });
+  } else {
+    addText('No sensitive signals detected.');
+  }
+  addHeading('Compliance mapping');
+  addText(result.compliance?.length ? result.compliance.join(' · ') : 'No compliance frameworks mapped.');
+  doc.save(`trustlens-inspection-${result.id}.pdf`);
+}
+
+async function extractPdfText(file: File) {
+  if (file.size > 25 * 1024 * 1024) {
+    throw new Error('PDFs must be smaller than 25 MB.');
+  }
+  const document = await pdfjsLib.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  const pages: string[] = [];
+  for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+    const page = await document.getPage(pageNumber);
+    const content = await page.getTextContent();
+    pages.push(content.items.map((item) => ('str' in item ? item.str : '')).join(' '));
+  }
+  const text = pages.join('\n\n').trim();
+  if (!text) {
+    throw new Error('This PDF does not contain selectable text. Try a text-based PDF or paste the content manually.');
+  }
+  return text;
 }
 
 function Inspector() {
   const [payload, setPayload] = useState('');
   const [result, setResult] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [scanStep, setScanStep] = useState(0);
+  const [pdfName, setPdfName] = useState('');
+  const [pdfStatus, setPdfStatus] = useState('');
   const analyze = useAnalyzePayload();
-  const handleAnalyze = () => { if (!payload.trim() || analyze.isPending) return; analyze.mutate({ data: { payloadText: payload } }, { onSuccess: (data) => { setResult(data); queryClient.invalidateQueries({ queryKey: getGetAuditLogsQueryKey({ severity: 'ALL' }) }); queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() }); } }); };
+  useEffect(() => {
+    if (!analyze.isPending) {
+      setScanStep(4);
+      return;
+    }
+    setScanStep(0);
+    const timer = window.setInterval(() => setScanStep((step) => Math.min(step + 1, 3)), 550);
+    return () => window.clearInterval(timer);
+  }, [analyze.isPending]);
+  const handleAnalyze = () => {
+    if (!payload.trim() || analyze.isPending) return;
+    analyze.mutate({ data: { payloadText: payload } }, {
+      onSuccess: (data) => {
+        setResult(data);
+        queryClient.invalidateQueries({ queryKey: getGetAuditLogsQueryKey({ severity: 'ALL' }) });
+        queryClient.invalidateQueries({ queryKey: getGetAuditStatsQueryKey() });
+      },
+    });
+  };
+  const handlePdfUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      setPdfStatus('Choose a PDF file to import.');
+      return;
+    }
+    setPdfName(file.name);
+    setPdfStatus('Extracting text from PDF…');
+    try {
+      const text = await extractPdfText(file);
+      setPayload(text);
+      setResult(null);
+      setPdfStatus(`Imported ${text.length.toLocaleString()} characters from ${file.name}.`);
+    } catch (error) {
+      setPdfStatus(error instanceof Error ? error.message : 'Could not read this PDF.');
+    }
+  };
   const copy = async () => { if (!result) return; await navigator.clipboard?.writeText(result.sanitizedText); setCopied(true); setTimeout(() => setCopied(false), 1500); };
-  return <div className="space-y-7"><div className="animate-rise"><div className="mb-3 flex items-center gap-2 font-mono-ui text-[10px] font-bold uppercase tracking-[.18em] text-[#3f8c70]"><span className="h-px w-7 bg-[#76c6a9]" />Before it leaves</div><h2 className="font-display text-[38px] font-bold leading-none tracking-[-.07em] text-[#183847] md:text-[46px]">Inspect a payload.</h2><p className="mt-3 max-w-xl text-sm leading-6 text-[#718488]">Paste a request body, log line, or freeform text. TrustLens identifies sensitive values, explains the risk, and returns a safe-to-share version.</p></div>
-    <div className="grid gap-5 xl:grid-cols-[1fr_1fr]"><section className="signal-grid animate-rise delay-1 rounded-2xl border border-[#dcded5] bg-[#f8f8f0] p-5 paper-shadow"><div className="mb-4 flex items-center justify-between"><div className="flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#dcefe5] text-[#2b7a5c]"><Terminal size={14} /></span><div><p className="text-sm font-bold text-[#254956]">Input payload</p><p className="font-mono-ui text-[9px] uppercase tracking-[.12em] text-[#8a9b9a]">Plain text · inspected privately</p></div></div><span className="font-mono-ui text-[10px] text-[#8a9b9a]">{payload.length} chars</span></div><textarea value={payload} onChange={(e) => setPayload(e.target.value)} data-testid="input-payload" placeholder={'Paste a payload here…\n\nExample: {"email":"maya@northstar.io","token":"sk_live_…"}'} className="h-[330px] w-full resize-none rounded-xl border border-[#d7ddd5] bg-[#fcfcf6] p-4 font-mono-ui text-[12px] leading-6 text-[#315462] outline-none transition-colors placeholder:text-[#a4b0aa] focus:border-[#65af93] focus:ring-2 focus:ring-[#bde5d3]" /><div className="mt-4 flex items-center justify-between"><button data-testid="button-clear-payload" onClick={() => { setPayload(''); setResult(null); }} className="text-xs font-semibold text-[#789092] hover:text-[#315762]">Clear</button><button data-testid="button-analyze-payload" onClick={handleAnalyze} disabled={!payload.trim() || analyze.isPending} className="flex items-center gap-2 rounded-xl bg-[#183f4f] px-4 py-3 text-xs font-bold text-[#f6f4eb] shadow-[0_4px_0_#0d2b38] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-45">{analyze.isPending ? <><RefreshCw size={14} className="animate-spin" /> Analyzing…</> : <><Sparkles size={14} /> Analyze payload <ArrowRight size={14} /></>}</button></div>{analyze.isError && <div className="mt-3 flex items-center gap-2 rounded-lg bg-[#fff0ed] px-3 py-2 text-xs text-[#a55047]"><CircleAlert size={14} /> Analysis failed. Check the payload and try again.</div>}</section>
-      <section className="animate-rise delay-2 min-h-[450px] rounded-2xl border border-[#e1ded5] bg-[#faf9f3] p-5 paper-shadow"><div className="mb-4 flex items-center justify-between"><div><p className="text-sm font-bold text-[#254956]">Inspection result</p><p className="font-mono-ui text-[9px] uppercase tracking-[.12em] text-[#8a9b9a]">Redacted output</p></div>{result && <button onClick={copy} data-testid="button-copy-sanitized" className="flex items-center gap-1.5 rounded-lg border border-[#d8ded7] px-2.5 py-1.5 text-[10px] font-bold text-[#4b7775] hover:bg-[#eef4ed]">{copied ? <Check size={12} /> : <Copy size={12} />}{copied ? 'Copied' : 'Copy output'}</button>}</div>{!result && !analyze.isPending && <div className="flex min-h-[370px] flex-col items-center justify-center text-center"><div className="relative mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-dashed border-[#bcd6c9] bg-[#edf5ee] text-[#64a58b]"><LockKeyhole size={25} /><span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-[#faf9f3] bg-[#e3b652]" /></div><p className="font-display text-lg font-bold text-[#31525c]">Nothing inspected yet</p><p className="mt-2 max-w-[250px] text-xs leading-5 text-[#829393]">Your redacted result and a plain-language risk rationale will appear here.</p></div>}{analyze.isPending && <div className="space-y-4 pt-5"><Skeleton className="h-7 w-32" /><Skeleton className="h-20 w-full" /><Skeleton className="h-28 w-full" /><Skeleton className="h-12 w-3/4" /></div>}{result && <ResultPanel result={result} />}</section></div>
-    <div className="grid gap-4 md:grid-cols-3"><div className="flex items-start gap-3 rounded-xl border border-[#dedfd5] bg-[#f8f7f0] p-4"><LockKeyhole size={16} className="mt-0.5 text-[#438d76]" /><div><p className="text-xs font-bold text-[#31525c]">No data retained in browser</p><p className="mt-1 text-[11px] leading-4 text-[#819193]">Only the result is available after analysis.</p></div></div><div className="flex items-start gap-3 rounded-xl border border-[#dedfd5] bg-[#f8f7f0] p-4"><Fingerprint size={16} className="mt-0.5 text-[#c18a32]" /><div><p className="text-xs font-bold text-[#31525c]">PII-aware detection</p><p className="mt-1 text-[11px] leading-4 text-[#819193]">Credentials, identity data, and tokens.</p></div></div><div className="flex items-start gap-3 rounded-xl border border-[#dedfd5] bg-[#f8f7f0] p-4"><ClipboardCheck size={16} className="mt-0.5 text-[#438d76]" /><div><p className="text-xs font-bold text-[#31525c]">Every scan is logged</p><p className="mt-1 text-[11px] leading-4 text-[#819193]">Traceable history for your team.</p></div></div></div>
+  return <div className="space-y-7"><div className="animate-rise"><div className="mb-3 flex items-center gap-2 font-mono-ui text-[10px] font-bold uppercase tracking-[.18em] text-[#3f8c70]"><span className="h-px w-7 bg-[#76c6a9]" />Before it leaves</div><h2 className="font-display text-[38px] font-bold leading-none tracking-[-.07em] text-[#183847] md:text-[46px]">Inspect a payload.</h2><p className="mt-3 max-w-xl text-sm leading-6 text-[#718488]">Paste a request body, log line, or freeform text. TrustLens identifies sensitive values, explains the exact match, and returns a safe-to-share version.</p></div>
+     <div className="grid gap-5 xl:grid-cols-[1fr_1fr]"><section className="signal-grid animate-rise delay-1 rounded-2xl border border-[#dcded5] bg-[#f8f8f0] p-5 paper-shadow"><div className="mb-4 flex items-center justify-between"><div className="flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#dcefe5] text-[#2b7a5c]"><Terminal size={14} /></span><div><p className="text-sm font-bold text-[#254956]">Input payload</p><p className="font-mono-ui text-[9px] uppercase tracking-[.12em] text-[#8a9b9a]">Paste text or import a PDF · inspected privately</p></div></div><span className="font-mono-ui text-[10px] text-[#8a9b9a]">{payload.length} chars</span></div><textarea value={payload} onChange={(e) => setPayload(e.target.value)} data-testid="input-payload" placeholder={'Paste a payload here…\n\nExample: {"email":"maya@northstar.io","token":"sk_live_…"}'} className="h-[300px] w-full resize-none rounded-xl border border-[#d7ddd5] bg-[#fcfcf6] p-4 font-mono-ui text-[12px] leading-6 text-[#315462] outline-none transition-colors placeholder:text-[#a4b0aa] focus:border-[#65af93] focus:ring-2 focus:ring-[#bde5d3]" /><div className="mt-3 flex flex-wrap items-center justify-between gap-3"><label htmlFor="pdf-upload" data-testid="button-upload-pdf" className="flex cursor-pointer items-center gap-2 rounded-lg border border-[#cfded4] bg-[#eef5ed] px-3 py-2 text-[11px] font-bold text-[#477269] transition hover:border-[#91c8aa] hover:bg-[#e4f1e6]"><Upload size={14} /> Import PDF<input id="pdf-upload" type="file" accept="application/pdf,.pdf" onChange={handlePdfUpload} className="sr-only" /></label><span className="flex items-center gap-1.5 text-[10px] text-[#829394]">{pdfName ? <><FileText size={13} /> {pdfName}</> : 'PDF text is extracted in your browser'}</span></div>{pdfStatus && <p className={`mt-2 text-[11px] ${pdfStatus.startsWith('Could') || pdfStatus.startsWith('Choose') || pdfStatus.startsWith('PDFs') ? 'text-[#a55047]' : 'text-[#477269]'}`}>{pdfStatus}</p>}<div className="mt-4 flex items-center justify-between"><button data-testid="button-clear-payload" onClick={() => { setPayload(''); setResult(null); setPdfName(''); setPdfStatus(''); }} className="text-xs font-semibold text-[#789092] hover:text-[#315762]">Clear</button><button data-testid="button-analyze-payload" onClick={handleAnalyze} disabled={!payload.trim() || analyze.isPending} className="flex items-center gap-2 rounded-xl bg-[#183f4f] px-4 py-3 text-xs font-bold text-[#f6f4eb] shadow-[0_4px_0_#0d2b38] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-45">{analyze.isPending ? <><RefreshCw size={14} className="animate-spin" /> Analyzing…</> : <><Sparkles size={14} /> Analyze payload <ArrowRight size={14} /></>}</button></div>{analyze.isError && <div className="mt-3 flex items-center gap-2 rounded-lg bg-[#fff0ed] px-3 py-2 text-xs text-[#a55047]"><CircleAlert size={14} /> Analysis failed. Check the payload and try again.</div>}</section>
+       <section className="animate-rise delay-2 min-h-[450px] rounded-2xl border border-[#e1ded5] bg-[#faf9f3] p-5 paper-shadow"><div className="mb-4 flex items-center justify-between"><div><p className="text-sm font-bold text-[#254956]">Inspection result</p><p className="font-mono-ui text-[9px] uppercase tracking-[.12em] text-[#8a9b9a]">Explainable redacted output</p></div>{result && <div className="flex items-center gap-2"><button onClick={() => downloadReport(result)} data-testid="button-download-txt" className="flex items-center gap-1.5 rounded-lg border border-[#d8ded7] px-2.5 py-1.5 text-[10px] font-bold text-[#4b7775] hover:bg-[#eef4ed]"><Download size={12} /> TXT</button><button onClick={() => downloadPdfReport(result)} data-testid="button-download-pdf" className="flex items-center gap-1.5 rounded-lg border border-[#d8ded7] px-2.5 py-1.5 text-[10px] font-bold text-[#4b7775] hover:bg-[#eef4ed]"><FileDown size={12} /> PDF</button><button onClick={copy} data-testid="button-copy-sanitized" className="flex items-center gap-1.5 rounded-lg border border-[#d8ded7] px-2.5 py-1.5 text-[10px] font-bold text-[#4b7775] hover:bg-[#eef4ed]">{copied ? <Check size={12} /> : <Copy size={12} />}{copied ? 'Copied' : 'Copy safe'}</button></div>}</div>{!result && !analyze.isPending && <div className="flex min-h-[370px] flex-col items-center justify-center text-center"><div className="relative mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-dashed border-[#bcd6c9] bg-[#edf5ee] text-[#64a58b]"><LockKeyhole size={25} /><span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-[#faf9f3] bg-[#e3b652]" /></div><p className="font-display text-lg font-bold text-[#31525c]">Nothing inspected yet</p><p className="mt-2 max-w-[250px] text-xs leading-5 text-[#829393]">Your before-and-after result, confidence, and plain-language explanation will appear here.</p></div>}{analyze.isPending && <div className="space-y-4 pt-5"><div className="rounded-xl border border-[#dce5db] bg-[#eef5ed] p-4"><div className="mb-3 flex items-center justify-between"><span className="font-mono-ui text-[10px] font-bold uppercase tracking-[.12em] text-[#438d76]">Scanning securely</span><span className="font-mono-ui text-[10px] text-[#71908a]">{Math.min(scanStep * 25 + 25, 100)}%</span></div><div className="mb-4 h-2 overflow-hidden rounded-full bg-[#d4e7d9]"><div className="h-full rounded-full bg-[#4ca177] transition-all duration-500" style={{ width: `${Math.min(scanStep * 25 + 25, 100)}%` }} /></div><div className="grid grid-cols-2 gap-2 text-[11px] text-[#57766f]">{['Emails', 'API keys', 'Cards', 'Secrets'].map((label, index) => <span key={label} className="flex items-center gap-1.5">{scanStep > index ? <Check size={13} className="text-[#3c926c]" /> : <span className="h-3 w-3 rounded-full border border-[#9fc9ad]" />}{label}</span>)}</div></div><Skeleton className="h-24 w-full" /><Skeleton className="h-28 w-full" /></div>}{result && <ResultPanel result={result} payload={payload} />}</section></div>
+     <div className="grid gap-4 md:grid-cols-3"><div className="flex items-start gap-3 rounded-xl border border-[#dedfd5] bg-[#f8f7f0] p-4"><LockKeyhole size={16} className="mt-0.5 text-[#438d76]" /><div><p className="text-xs font-bold text-[#31525c]">Server-side privacy</p><p className="mt-1 text-[11px] leading-4 text-[#819193]">The AI key stays behind the API boundary.</p></div></div><div className="flex items-start gap-3 rounded-xl border border-[#dedfd5] bg-[#f8f7f0] p-4"><Fingerprint size={16} className="mt-0.5 text-[#c18a32]" /><div><p className="text-xs font-bold text-[#31525c]">Supported signals</p><p className="mt-1 text-[11px] leading-4 text-[#819193]">API keys, JWTs, cards, email, phone, IP, and more.</p></div></div><div className="flex items-start gap-3 rounded-xl border border-[#dedfd5] bg-[#f8f7f0] p-4"><ClipboardCheck size={16} className="mt-0.5 text-[#438d76]" /><div><p className="text-xs font-bold text-[#31525c]">Every scan is logged</p><p className="mt-1 text-[11px] leading-4 text-[#819193]">Traceable history with score and processing time.</p></div></div></div>
+     <section className="rounded-2xl border border-[#e1ded5] bg-[#faf9f3] p-5 paper-shadow"><div className="flex items-center justify-between"><div><p className="font-display text-lg font-bold text-[#183847]">Supported sensitive types</p><p className="mt-1 text-xs text-[#7a8c8f]">Pattern families TrustLens prioritizes</p></div><ShieldCheck size={18} className="text-[#438d76]" /></div><div className="mt-4 flex flex-wrap gap-2">{['API keys', 'Passwords', 'JWT', 'Credit cards', 'Emails', 'Phone', 'IP address', 'Bank account', 'Person name', 'Location'].map((label) => <span key={label} className="rounded-full border border-[#d8e2d8] bg-[#eef5ed] px-3 py-1.5 text-[10px] font-semibold text-[#477269]">{label}</span>)}</div></section>
   </div>;
 }
 
-function ResultPanel({ result }: { result: any }) {
-  return <div className="space-y-5"><div className={`flex items-center justify-between rounded-xl border p-3 ${result.severity === 'HIGH' ? 'border-[#e5b8b2] bg-[#fff1ef]' : result.severity === 'MEDIUM' ? 'border-[#efd19c] bg-[#fff8e7]' : 'border-[#b9d9c6] bg-[#eef8f0]'}`}><div className="flex items-center gap-2 text-xs font-bold text-[#31525c]"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#faf9f3]"><ShieldCheck size={15} className="text-[#438d76]" /></span>Analysis complete</div><SeverityPill severity={result.severity} /></div><div><div className="mb-2 flex items-center justify-between"><p className="font-mono-ui text-[9px] font-bold uppercase tracking-[.15em] text-[#849394]">Sanitized payload</p><span className="font-mono-ui text-[9px] text-[#97a4a0]">ID #{result.id}</span></div><pre data-testid="text-sanitized-result" className="max-h-[175px] overflow-auto whitespace-pre-wrap rounded-xl border border-[#dce3da] bg-[#eef4ec] p-4 font-mono-ui text-[11px] leading-5 text-[#356052]">{result.sanitizedText}</pre></div><div className="rounded-xl border border-[#e4e1d6] bg-[#f6f4eb] p-4"><p className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.12em] text-[#728586]"><CircleCheck size={14} className="text-[#438d76]" />Assessment</p><p className="text-xs leading-5 text-[#536b70]">{result.rationale}</p></div>{result.threats?.length > 0 && <div><p className="mb-2 font-mono-ui text-[9px] font-bold uppercase tracking-[.15em] text-[#849394]">Signals found · {result.threats.length}</p><div className="space-y-2">{result.threats.map((threat: any, i: number) => <div key={`${threat.type}-${i}`} className="rounded-xl border border-[#e5e2d9] p-3"><div className="flex items-center justify-between"><span className="text-xs font-bold text-[#31525c]">{threat.type}</span><SeverityPill severity={threat.severity} small /></div><p className="mt-1 font-mono-ui text-[10px] text-[#b05249]">{threat.value}</p><p className="mt-2 text-[11px] leading-4 text-[#7b8c8e]">{threat.rationale}</p></div>)}</div></div>}</div>;
+function ResultPanel({ result, payload }: { result: any; payload: string }) {
+  const score = result.privacyScore ?? 100;
+  const scoreTone = score < 60 ? 'text-[#a55047]' : score < 80 ? 'text-[#986822]' : 'text-[#287459]';
+  return <div className="space-y-5"><div className={`flex items-center justify-between rounded-xl border p-3 ${result.severity === 'CRITICAL' ? 'border-[#cfafd9] bg-[#f8effb]' : result.severity === 'HIGH' ? 'border-[#e5b8b2] bg-[#fff1ef]' : result.severity === 'MEDIUM' ? 'border-[#efd19c] bg-[#fff8e7]' : 'border-[#b9d9c6] bg-[#eef8f0]'}`}><div className="flex items-center gap-2 text-xs font-bold text-[#31525c]"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#faf9f3]"><ShieldCheck size={15} className="text-[#438d76]" /></span>Analysis complete</div><div className="flex items-center gap-2"><span className={`font-mono-ui text-xs font-bold ${scoreTone}`}>{score}/100 privacy</span><SeverityPill severity={result.severity} /></div></div><div className="rounded-xl border border-[#dfe4d9] bg-[#f7faf4] p-4"><div className="mb-2 flex items-center justify-between"><div><p className="font-display text-lg font-bold text-[#244d56]">Privacy score</p><p className="text-[11px] text-[#718789]">Higher is safer · risk is weighted by severity</p></div><span className={`font-display text-3xl font-bold ${scoreTone}`}>{score}</span></div><div className="h-3 overflow-hidden rounded-full bg-[#e0e9dc]"><div className={`h-full rounded-full transition-all duration-700 ${score < 60 ? 'bg-[#c9685e]' : score < 80 ? 'bg-[#d99a37]' : 'bg-[#4ca177]'}`} style={{ width: `${score}%` }} /></div></div><div><div className="mb-2 flex items-center justify-between"><p className="font-mono-ui text-[9px] font-bold uppercase tracking-[.15em] text-[#849394]">Before vs after</p><span className="font-mono-ui text-[9px] text-[#97a4a0]">ID #{result.id}</span></div><div className="grid gap-3 md:grid-cols-2"><div><p className="mb-1 text-[10px] font-semibold uppercase tracking-[.1em] text-[#a55047]">Original</p><pre className="h-[145px] overflow-auto whitespace-pre-wrap rounded-xl border border-[#ead2cc] bg-[#fff5f2] p-3 font-mono-ui text-[10px] leading-5 text-[#80544d]">{payload}</pre></div><div><p className="mb-1 text-[10px] font-semibold uppercase tracking-[.1em] text-[#287459]">Protected</p><pre data-testid="text-sanitized-result" className="h-[145px] overflow-auto whitespace-pre-wrap rounded-xl border border-[#dce3da] bg-[#eef4ec] p-3 font-mono-ui text-[10px] leading-5 text-[#356052]">{result.sanitizedText}</pre></div></div></div><div className="rounded-xl border border-[#e4e1d6] bg-[#f6f4eb] p-4"><p className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.12em] text-[#728586]"><CircleCheck size={14} className="text-[#438d76]" />Why this was detected</p><p className="text-xs leading-5 text-[#536b70]">{result.rationale}</p></div>{result.threats?.length > 0 && <div><p className="mb-2 font-mono-ui text-[9px] font-bold uppercase tracking-[.15em] text-[#849394]">Detected signals · {result.threats.length}</p><div className="space-y-2">{result.threats.map((threat: any, i: number) => <div key={`${threat.type}-${i}`} className="rounded-xl border border-[#e5e2d9] bg-[#fcfbf6] p-3"><div className="flex items-center justify-between"><div className="flex items-center gap-2"><span className="text-xs font-bold text-[#31525c]">{threat.type}</span><span className="font-mono-ui text-[10px] font-bold text-[#438d76]">{threat.confidence}%</span></div><SeverityPill severity={threat.severity} small /></div><div className="mt-2 h-1 overflow-hidden rounded-full bg-[#e5e6dc]"><div className="h-full rounded-full bg-[#72bda4]" style={{ width: `${threat.confidence}%` }} /></div><p className="mt-2 font-mono-ui text-[10px] text-[#b05249]">{threat.value}</p><p className="mt-2 text-[11px] leading-4 text-[#667d7f]">{threat.rationale}</p>{threat.compliance?.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{threat.compliance.map((item: string) => <span key={item} className="rounded-full bg-[#e7f1e8] px-2 py-1 text-[9px] font-semibold text-[#477269]">{item}</span>)}</div>}</div>)}</div></div>}{result.compliance?.length > 0 && <div className="rounded-xl border border-[#d8e2d8] bg-[#eef5ed] p-4"><p className="mb-3 text-[10px] font-bold uppercase tracking-[.12em] text-[#477269]">Compliance mapping</p><div className="flex flex-wrap gap-2">{result.compliance.map((item: string) => <span key={item} className="flex items-center gap-1.5 rounded-full border border-[#c8dfcf] bg-white/60 px-2.5 py-1.5 text-[10px] font-semibold text-[#3b765f]"><Check size={11} />{item}</span>)}</div></div>}<div className="flex items-center gap-3 font-mono-ui text-[10px] text-[#829394]"><Timer size={13} /> Scan completed in {result.processingTimeMs}ms · persisted to audit history</div></div>;
 }
 
 function Reports() {
   const [filter, setFilter] = useState<'ALL' | Severity>('ALL');
   const logs = useGetAuditLogs(filter === 'ALL' ? { severity: 'ALL' } : { severity: filter });
-  const options: ('ALL' | Severity)[] = ['ALL', 'HIGH', 'MEDIUM', 'LOW'];
+  const options: ('ALL' | Severity)[] = ['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
   return <div className="space-y-7"><div className="animate-rise flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><div className="mb-3 flex items-center gap-2 font-mono-ui text-[10px] font-bold uppercase tracking-[.18em] text-[#3f8c70]"><span className="h-px w-7 bg-[#76c6a9]" />Accountability trail</div><h2 className="font-display text-[38px] font-bold leading-none tracking-[-.07em] text-[#183847] md:text-[46px]">Audit reports.</h2><p className="mt-3 text-sm leading-6 text-[#718488]">A durable record of the data your team caught before it could travel.</p></div><div className="flex items-center gap-1 rounded-xl border border-[#dddcd3] bg-[#faf9f3] p-1">{options.map((option) => <button key={option} onClick={() => setFilter(option)} data-testid={`button-filter-${option.toLowerCase()}`} className={`rounded-lg px-3 py-2 font-mono-ui text-[10px] font-bold uppercase tracking-[.08em] transition ${filter === option ? 'bg-[#183f4f] text-white' : 'text-[#71878a] hover:bg-[#eeece3]'}`}>{option === 'ALL' ? 'All' : severityStyles[option].label}</button>)}</div></div><section className="animate-rise delay-1 rounded-2xl border border-[#e1ded5] bg-[#faf9f3] paper-shadow"><div className="flex items-center justify-between border-b border-[#e7e4db] p-5"><div><p className="font-display text-lg font-bold text-[#183847]">{filter === 'ALL' ? 'All inspections' : `${severityStyles[filter].label} severity`}</p><p className="mt-1 text-xs text-[#7a8c8f]">{logs.data?.length ?? 0} logged payloads</p></div><div className="flex items-center gap-2 text-[10px] text-[#829394]"><Clock3 size={13} /> Sorted newest first</div></div><QueryState loading={logs.isLoading} error={logs.isError} onRetry={() => logs.refetch()} label="reports"><AuditTable rows={logs.data ?? []} /></QueryState></section></div>;
 }
 

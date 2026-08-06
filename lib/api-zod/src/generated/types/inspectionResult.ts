@@ -12,7 +12,15 @@ export interface InspectionResult {
   id: number;
   sanitizedText: string;
   severity: InspectionResultSeverity;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  privacyScore: number;
   threats: Threat[];
   rationale: string;
+  compliance: string[];
+  /** @minimum 0 */
+  processingTimeMs: number;
   createdAt: Date;
 }

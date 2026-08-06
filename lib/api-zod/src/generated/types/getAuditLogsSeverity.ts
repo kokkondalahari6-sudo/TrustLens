@@ -14,4 +14,5 @@ export const GetAuditLogsSeverity = {
   LOW: 'LOW',
   MEDIUM: 'MEDIUM',
   HIGH: 'HIGH',
+  CRITICAL: 'CRITICAL',
 } as const;
