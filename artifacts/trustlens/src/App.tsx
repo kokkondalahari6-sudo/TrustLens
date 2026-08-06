@@ -20,10 +20,10 @@ setAuthTokenGetter(() => {
 
 type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 const severityStyles: Record<Severity, { pill: string; dot: string; label: string }> = {
-  LOW: { pill: 'bg-[#e3f0e7] text-[#267052] border-[#b9d9c6]', dot: 'bg-[#4ca177]', label: 'Low' },
-  MEDIUM: { pill: 'bg-[#fff0d3] text-[#95631d] border-[#efd19c]', dot: 'bg-[#d99a37]', label: 'Medium' },
-  HIGH: { pill: 'bg-[#f8dfdc] text-[#a4473e] border-[#e5b8b2]', dot: 'bg-[#c9685e]', label: 'High' },
-  CRITICAL: { pill: 'bg-[#eadcf1] text-[#713e85] border-[#cfafd9]', dot: 'bg-[#9145a8]', label: 'Critical' },
+  LOW: { pill: 'bg-[#123f53] text-[#62e9f0] border-[#26748d]', dot: 'bg-[#27cde2]', label: 'Low' },
+  MEDIUM: { pill: 'bg-[#49351d] text-[#f3c36c] border-[#8a6330]', dot: 'bg-[#f2bd62]', label: 'Medium' },
+  HIGH: { pill: 'bg-[#50253b] text-[#ff829b] border-[#933e5f]', dot: 'bg-[#f27491]', label: 'High' },
+  CRITICAL: { pill: 'bg-[#382654] text-[#b48cff] border-[#6942a1]', dot: 'bg-[#a77bff]', label: 'Critical' },
 };
 
 function SeverityPill({ severity, small = false }: { severity: Severity; small?: boolean }) {
@@ -32,13 +32,13 @@ function SeverityPill({ severity, small = false }: { severity: Severity; small?:
 }
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
-  return <div className="flex items-center gap-2.5" data-testid="brand-trustlens"><div className="relative flex h-8 w-8 items-center justify-center rounded-[10px] bg-[#9ee1c9] text-[#123346] shadow-[inset_0_-2px_0_rgba(18,51,70,.12)]"><ShieldCheck size={19} strokeWidth={2.4} /><span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border-2 border-[#123346] bg-[#e3b652]" /></div>{!compact && <span className="font-display text-[20px] font-bold tracking-[-.06em]">trust<span className="text-[#76c6a9]">lens</span></span>}</div>;
+  return <div className="flex items-center gap-2.5" data-testid="brand-trustlens"><div className="relative flex h-8 w-8 items-center justify-center rounded-[10px] border border-[#51d9ed] bg-[#102d58] text-[#5fe8f3] shadow-[0_0_22px_rgba(48,210,238,.25)]"><ShieldCheck size={19} strokeWidth={2.4} /><span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border-2 border-[#070f24] bg-[#8c7cff]" /></div>{!compact && <span className="font-display text-[20px] font-bold tracking-[-.06em] text-[#ecf5ff]">trust<span className="text-[#51d9ed]">lens</span></span>}</div>;
 }
 
 function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boolean; setMobileOpen: (v: boolean) => void }) {
   const [location] = useLocation();
   const nav = [{ href: '/', label: 'Overview', icon: Gauge }, { href: '/inspector', label: 'Inspector', icon: FileSearch }, { href: '/reports', label: 'Audit reports', icon: BarChart3 }];
-  return <aside className={`${mobileOpen ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-40 flex w-[258px] flex-col bg-[#112f40] text-[#e5f0ed] transition-transform duration-200 md:relative md:translate-x-0`} data-testid="sidebar">
+  return <aside className={`${mobileOpen ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-40 flex w-[258px] flex-col bg-[#112f40] text-[#e5f0ed] transition-transform duration-300 md:relative md:translate-x-0`} data-testid="sidebar">
     <div className="flex h-[84px] items-center border-b border-[#315061] px-7"><BrandMark /></div>
     <div className="px-5 pt-8"><p className="mb-3 px-3 font-mono-ui text-[9px] font-bold uppercase tracking-[.2em] text-[#91abb0]">Workspace</p>
       <nav className="space-y-1">{nav.map(({ href, label, icon: Icon }) => <Link key={href} href={href} onClick={() => setMobileOpen(false)} data-testid={`link-nav-${label.toLowerCase().replace(' ', '-')}`} className={`group flex items-center gap-3 rounded-lg px-3 py-3 text-[13px] font-semibold transition-colors ${location === href ? 'bg-[#24495a] text-[#a5e4ce]' : 'text-[#b6cacb] hover:bg-[#1b3c4d] hover:text-[#f1faf4]'}`}><Icon size={17} strokeWidth={location === href ? 2.2 : 1.8} /><span>{label}</span>{location === href && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#9ee1c9]" />}</Link>)}</nav>
