@@ -471,6 +471,13 @@ input::placeholder, textarea::placeholder { color: #8da8ce !important; }
   color: #d9e6f5 !important;
   box-shadow: none;
 }
+.audit-payload-preview {
+  color: #e9fbff !important;
+  text-shadow: 0 0 10px rgba(100, 222, 255, .12);
+}
+.audit-table-muted {
+  color: #b8cbed !important;
+}
 
 @media print {
   body { background: white !important; }
