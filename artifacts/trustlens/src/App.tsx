@@ -2,11 +2,11 @@ import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/reac
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { getGetAuditLogsQueryKey, getGetAuditStatsQueryKey, setAuthTokenGetter, useAnalyzePayload, useGetAuditLogs, useGetAuditStats, useHealthCheck, useLogin, useRegister, useSendChatMessage } from '@workspace/api-client-react';
-import { Activity, ArrowLeft, ArrowRight, BarChart3, Bot, Check, ChevronDown, ClipboardCheck, Clock3, Copy, Download, FileDown, FileSearch, FileText, Fingerprint, Gauge, KeyRound, LockKeyhole, LogIn, LogOut, Mail, Menu, MessageCircle, RefreshCw, Search, Send, ShieldCheck, ShieldAlert, Sparkles, Terminal, Timer, Upload, X, AlertTriangle, CircleAlert, CircleCheck, Info, UserRound } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowLeft, ArrowRight, BarChart3, Bell, Bot, Check, CheckCircle2, ChevronDown, ChevronRight, CircleAlert, CircleCheck, ClipboardCheck, Clock3, Copy, Download, Eye, EyeOff, FileDown, FileSearch, FileText, Fingerprint, Gauge, History, Info, KeyRound, Laptop, Link2, LockKeyhole, LogIn, LogOut, Mail, Menu, MessageCircle, RefreshCw, Search, Send, Settings2, ShieldAlert, ShieldCheck, Sparkles, Terminal, Timer, Upload, UserRound, Volume2, VolumeX, X, Zap } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { Component, useEffect, useMemo, useState } from 'react';
+import { Component, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 import NotFound from '@/pages/not-found';
 
@@ -105,7 +105,7 @@ function Sidebar({ mobileOpen, setMobileOpen, user, profileOpen, logoutPending, 
   onLogout: () => void;
 }) {
   const [location] = useLocation();
-  const nav = [{ href: '/', label: 'Overview', icon: Gauge }, { href: '/inspector', label: 'Inspector', icon: FileSearch }, { href: '/reports', label: 'Audit reports', icon: BarChart3 }, { href: '/assistant', label: 'Security assistant', icon: MessageCircle }];
+  const nav = [{ href: '/', label: 'Overview', icon: Gauge }, { href: '/inspector', label: 'Inspector', icon: FileSearch }, { href: '/shield', label: 'Privacy Shield', icon: ShieldCheck }, { href: '/reports', label: 'Audit reports', icon: BarChart3 }, { href: '/assistant', label: 'Security assistant', icon: MessageCircle }];
   return <aside className={`${mobileOpen ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-40 flex w-[258px] flex-col bg-[#112f40] text-[#e5f0ed] transition-transform duration-300 md:relative md:translate-x-0`} data-testid="sidebar">
     <div className="flex h-[84px] items-center border-b border-[#315061] px-7"><BrandMark /></div>
     <div className="px-5 pt-8"><p className="mb-3 px-3 font-mono-ui text-[9px] font-bold uppercase tracking-[.2em] text-[#91abb0]">Workspace</p>
@@ -123,7 +123,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const [user] = useState<StoredUser>(() => getStoredUser());
   const [location] = useLocation();
   const [, setLocation] = useLocation();
-  const title = location === '/inspector' ? 'Payload inspector' : location === '/reports' ? 'Audit reports' : location === '/assistant' ? 'Security assistant' : 'Overview';
+  const title = location === '/inspector' ? 'Payload inspector' : location === '/shield' ? 'Privacy Shield' : location === '/reports' ? 'Audit reports' : location === '/assistant' ? 'Security assistant' : 'Overview';
   const goBack = () => {
     if (backPending) return;
     setBackPending(true);
@@ -488,6 +488,164 @@ function Assistant() {
   </div>;
 }
 
+type ShieldSeverity = 'Low' | 'Medium' | 'High' | 'Critical';
+type ShieldClassification = 'Safe' | 'Warning' | 'High Risk';
+type ShieldSignal = {
+  type: string;
+  confidence: number;
+  severity: ShieldSeverity;
+  rationale: string;
+  value: string;
+};
+type ShieldHistory = {
+  timestamp: string;
+  risk: number;
+  classification: ShieldClassification;
+  signals: string[];
+};
+
+const shieldPatterns: Array<{ type: string; pattern: RegExp; severity: ShieldSeverity; confidence: number; rationale: string; weight: number }> = [
+  { type: 'API key / source secret', pattern: /\b(?:sk_(?:live|test)_[A-Za-z0-9]{12,}|AKIA[0-9A-Z]{12,}|ghp_[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_-]{20,}|(?:api[_ -]?key|secret|client[_ -]?secret)\s*[:=]\s*["']?[A-Za-z0-9_\-/.]{12,})\b/i, severity: 'Critical', confidence: 98, rationale: 'A credential-shaped prefix or secret assignment can grant access to a service.', weight: 42 },
+  { type: 'JWT / Bearer token', pattern: /\b(?:Bearer\s+eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,})\b/i, severity: 'Critical', confidence: 97, rationale: 'This resembles a signed session or authorization token.', weight: 40 },
+  { type: 'Password', pattern: /\b(?:password|passwd|passcode|pwd)\s*[:=]\s*["']?[^\s"',;]{6,}/i, severity: 'High', confidence: 95, rationale: 'A password-like field is paired with a non-empty secret value.', weight: 34 },
+  { type: 'Card number', pattern: /\b(?:\d[ -]*?){13,19}\b/, severity: 'High', confidence: 91, rationale: 'A long numeric sequence matches common payment-card lengths.', weight: 32 },
+  { type: 'Government identifier', pattern: /\b(?:\d{3}-\d{2}-\d{4}|\d{4}[ -]\d{4}[ -]\d{4}|\b[A-Z]{5}\d{4}[A-Z]\b)\b/i, severity: 'High', confidence: 89, rationale: 'The shape resembles an SSN, Aadhaar-like number, or PAN identifier.', weight: 30 },
+  { type: 'Bank account details', pattern: /\b(?:account(?: number)?|routing|ifsc|iban|swift)\s*[:#=-]?\s*[A-Z0-9][A-Z0-9 -]{6,30}\b/i, severity: 'High', confidence: 87, rationale: 'A financial account field appears alongside an account-shaped value.', weight: 27 },
+  { type: 'Email address', pattern: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i, severity: 'Medium', confidence: 98, rationale: 'An email address is direct contact information and may identify a person.', weight: 12 },
+  { type: 'Phone number', pattern: /(?<!\d)(?:\+?\d[\d .()-]{8,}\d)(?!\d)/, severity: 'Medium', confidence: 84, rationale: 'The sequence resembles an international or domestic phone number.', weight: 14 },
+  { type: 'IP address', pattern: /\b(?:\d{1,3}\.){3}\d{1,3}\b/, severity: 'Medium', confidence: 93, rationale: 'An IPv4 address can reveal a device or network location.', weight: 13 },
+  { type: 'Home address', pattern: /\b(?:home address|street address|residential address|address)\s*[:=]/i, severity: 'High', confidence: 82, rationale: 'Address terminology suggests a physical location tied to a person or household.', weight: 26 },
+  { type: 'Confidential / company term', pattern: /\b(?:confidential|internal only|do not share|private roadmap|layoff|acquisition|merger|customer list|proprietary)\b/i, severity: 'Medium', confidence: 78, rationale: 'The message contains language commonly used to mark internal or restricted material.', weight: 18 },
+];
+
+function redactShieldValue(value: string) {
+  const clean = value.trim();
+  if (clean.length <= 8) return '••••••';
+  return `${clean.slice(0, 3)}${'•'.repeat(Math.min(12, Math.max(4, clean.length - 6)))}${clean.slice(-3)}`;
+}
+
+function scanShieldText(text: string, sensitivity: 'balanced' | 'high' | 'maximum') {
+  const signals: ShieldSignal[] = [];
+  let risk = 0;
+  for (const rule of shieldPatterns) {
+    const match = text.match(rule.pattern);
+    if (match?.[0]) {
+      const adjusted = Math.min(99, rule.confidence + (sensitivity === 'maximum' ? 3 : sensitivity === 'high' ? 1 : 0));
+      signals.push({ type: rule.type, confidence: adjusted, severity: rule.severity, rationale: rule.rationale, value: redactShieldValue(match[0]) });
+      risk += rule.weight + (sensitivity === 'maximum' ? 3 : sensitivity === 'high' ? 1 : 0);
+    }
+  }
+  risk = Math.min(100, risk);
+  const classification: ShieldClassification = risk > 55 ? 'High Risk' : risk > 20 ? 'Warning' : 'Safe';
+  return { risk, classification, signals };
+}
+
+function ShieldToggle({ label, detail, checked, onChange, icon: Icon }: { label: string; detail: string; checked: boolean; onChange: (value: boolean) => void; icon: typeof ShieldCheck }) {
+  return <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-[#264b78] bg-[#0b1b3a] p-3.5 transition hover:border-[#4d82bc]">
+    <span className="flex items-start gap-3"><span className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-lg bg-[#102b57] text-[#66e9ef]"><Icon size={15} /></span><span><span className="block text-xs font-bold text-[#edf6ff]">{label}</span><span className="mt-1 block text-[10px] leading-4 text-[#91a9cf]">{detail}</span></span></span>
+    <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="peer sr-only" />
+    <span className={`relative h-6 w-11 shrink-0 rounded-full border transition ${checked ? 'border-[#51d9ed] bg-[#1a9db3]' : 'border-[#41618b] bg-[#17294a]'}`}><span className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-[#e8fbff] transition-transform ${checked ? 'translate-x-5' : 'translate-x-0.5'}`} /></span>
+  </label>;
+}
+
+function PrivacyShield() {
+  const [draft, setDraft] = useState('');
+  const [sensitivity, setSensitivity] = useState<'balanced' | 'high' | 'maximum'>('balanced');
+  const [monitoring, setMonitoring] = useState(true);
+  const [vibration, setVibration] = useState(false);
+  const [sound, setSound] = useState(false);
+  const [appList, setAppList] = useState(['ChatGPT', 'Claude']);
+  const [customApp, setCustomApp] = useState('');
+  const [history, setHistory] = useState<ShieldHistory[]>([]);
+  const [lastScan, setLastScan] = useState<{ risk: number; classification: ShieldClassification; signals: ShieldSignal[] } | null>(null);
+  const [overlay, setOverlay] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [confirmation, setConfirmation] = useState(false);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+  const analysisRef = useRef<HTMLDivElement>(null);
+  const rawScan = useMemo(() => scanShieldText(draft, sensitivity), [draft, sensitivity]);
+  const scan = monitoring ? rawScan : { risk: 0, classification: 'Safe' as ShieldClassification, signals: [] as ShieldSignal[] };
+  const isRisky = scan.risk > 20;
+  const statusText = !draft.trim() ? 'Waiting for text' : !monitoring ? 'Monitoring paused' : scan.classification === 'Safe' ? 'No exposed signals' : `${scan.signals.length} signal${scan.signals.length === 1 ? '' : 's'} detected`;
+
+  const recordScan = () => {
+    if (!draft.trim()) return;
+    setLastScan(scan);
+    setHistory((items) => [{ timestamp: new Date().toISOString(), risk: scan.risk, classification: scan.classification, signals: scan.signals.map((signal) => signal.type) }, ...items].slice(0, 20));
+    if (isRisky) {
+      setNotice('Privacy Shield found sensitive signals. Review the analysis before sending.');
+      window.setTimeout(() => setNotice(''), 6000);
+      analysisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      setNotice('Scan complete. No risky signals found.');
+      window.setTimeout(() => setNotice(''), 4000);
+    }
+  };
+  const requestSend = () => {
+    setLastScan(scan);
+    if (isRisky) setOverlay(true);
+    else {
+      setConfirmation(true);
+      setHistory((items) => [{ timestamp: new Date().toISOString(), risk: scan.risk, classification: scan.classification, signals: scan.signals.map((signal) => signal.type) }, ...items].slice(0, 20));
+    }
+  };
+  const sendAnyway = () => {
+    setOverlay(false);
+    setConfirmation(true);
+    setNotice('Send confirmed locally. Nothing was uploaded or transmitted.');
+    setHistory((items) => [{ timestamp: new Date().toISOString(), risk: scan.risk, classification: scan.classification, signals: scan.signals.map((signal) => signal.type) }, ...items].slice(0, 20));
+    setDraft('');
+  };
+  const cancelSend = () => {
+    setOverlay(false);
+    setDraft('');
+    setConfirmation(false);
+    setNotice('Send attempt blocked and draft cleared.');
+    window.setTimeout(() => setNotice(''), 4000);
+  };
+  const toggleApp = (app: string) => setAppList((items) => items.includes(app) ? items.filter((item) => item !== app) : [...items, app]);
+  const scrollToAnalysis = () => analysisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  return <div className="privacy-shield space-y-6">
+    <div className="animate-rise flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+      <div><div className="mb-3 flex items-center gap-2 font-mono-ui text-[10px] font-bold uppercase tracking-[.2em] text-[#63e7ef]"><span className="h-px w-8 bg-[#63e7ef]" />Live safety layer</div><h2 className="font-display text-[38px] font-bold leading-[.95] tracking-[-.08em] text-[#f1f7ff] md:text-[52px]">Catch it before<br /><span className="text-[#61e7ef]">it leaves.</span></h2><p className="mt-4 max-w-xl text-sm leading-6 text-[#9bb0d2]">Privacy Shield inspects text in this browser, flags sensitive signals, and keeps the decision in your hands. Nothing in this workspace is uploaded.</p></div>
+      <div className="flex items-center gap-2 rounded-2xl border border-[#27578b] bg-[#0b1d42] px-4 py-3 text-[11px] text-[#b9d4f3]"><span className={`h-2 w-2 rounded-full ${monitoring ? 'animate-pulse-soft bg-[#63e7ef]' : 'bg-[#7587a5]'}`} /><span className="font-mono-ui uppercase tracking-[.1em]">{monitoring ? 'Shield active' : 'Shield paused'}</span><span className="text-[#5f79a3]">·</span><span>Browser-only</span></div>
+    </div>
+    {notice && <div className="animate-rise flex items-center justify-between gap-3 rounded-xl border border-[#39aebc] bg-[#0b2e4d] px-4 py-3 text-xs text-[#d9faff]" role="status" data-testid="status-shield-notification"><span className="flex items-center gap-2"><Bell size={15} className="text-[#63e7ef]" />{notice}</span>{isRisky && <button type="button" onClick={scrollToAnalysis} data-testid="button-review-analysis" className="flex items-center gap-1 font-bold text-[#63e7ef] hover:text-white">Review analysis <ChevronRight size={13} /></button>}</div>}
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,.75fr)]">
+      <section className="signal-grid animate-rise delay-1 rounded-2xl border border-[#2b5d90] bg-[#071530] p-4 paper-shadow md:p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#2e86a3] bg-[#0c355a] text-[#63e7ef]"><Zap size={17} /></span><div><p className="text-sm font-bold text-[#ecf7ff]">Protected composer</p><p className="font-mono-ui text-[9px] uppercase tracking-[.12em] text-[#7895bd]">Local inspection · content never stored</p></div></div><span className="font-mono-ui text-[10px] text-[#7895bd]">{draft.length.toLocaleString()} / 12,000 chars</span></div>
+        <textarea ref={editorRef} value={draft} onChange={(event) => { setDraft(event.target.value.slice(0, 12000)); setConfirmation(false); }} data-testid="input-shield-message" placeholder={'Type or paste a message to inspect…\n\nTry: “Send the API key sk_live_… to maya@company.com”'} className="h-[260px] w-full resize-none rounded-xl border border-[#315d91] bg-[#061126] p-4 font-mono-ui text-[12px] leading-6 text-[#e6f6ff] outline-none placeholder:text-[#6f88b0] focus:border-[#63e7ef] focus:ring-2 focus:ring-[#63e7ef]/20" />
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2 text-[10px] text-[#89a5ca]"><span className={`h-1.5 w-1.5 rounded-full ${scan.classification === 'Safe' ? 'bg-[#5de0b3]' : 'bg-[#ff829b]'}`} /><span data-testid="status-shield-live">{statusText}</span>{draft && monitoring && <span className="font-mono-ui text-[#6281aa]">· live</span>}</div><div className="flex items-center gap-2"><button type="button" onClick={() => { setDraft(''); setLastScan(null); setConfirmation(false); }} data-testid="button-reset-shield" className="rounded-lg border border-[#294b78] px-3 py-2 text-[11px] font-bold text-[#8da8cd] hover:border-[#5d83b7] hover:text-white">Reset</button><button type="button" onClick={recordScan} disabled={!draft.trim()} data-testid="button-scan-shield" className="flex items-center gap-2 rounded-xl border border-[#61e7ef] bg-[#11627d] px-4 py-2.5 text-[11px] font-bold text-white shadow-[0_4px_0_#073c62] hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"><Eye size={14} /> Scan now</button><button type="button" onClick={requestSend} disabled={!draft.trim()} data-testid="button-send-shield" className="flex items-center gap-2 rounded-xl bg-[#5267e8] px-4 py-2.5 text-[11px] font-bold text-white shadow-[0_4px_0_#29347e] hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"><Send size={14} /> Send</button></div></div>
+        {confirmation && <div className="mt-4 flex items-center gap-2 rounded-xl border border-[#2d9e88] bg-[#0b3a43] px-3 py-3 text-xs text-[#c5fff0]" data-testid="status-shield-confirmed"><CheckCircle2 size={16} className="text-[#63e7c1]" /> Safe confirmation: this prototype did not send or upload your message.</div>}
+      </section>
+      <aside className="animate-rise delay-2 rounded-2xl border border-[#2b5d90] bg-[#0a1b3c] p-5 paper-shadow">
+        <div className="flex items-start justify-between"><div><p className="font-display text-lg font-bold text-[#eef7ff]">Live risk signal</p><p className="mt-1 text-xs text-[#88a2c6]">Calculated locally as you type</p></div><div className={`flex h-10 w-10 items-center justify-center rounded-xl border ${scan.classification === 'Safe' ? 'border-[#2a947d] bg-[#0b3e46] text-[#63e7c1]' : scan.classification === 'Warning' ? 'border-[#a87840] bg-[#49341d] text-[#f3c36c]' : 'border-[#a63e68] bg-[#4b203c] text-[#ff829b]'}`}><ShieldAlert size={19} /></div></div>
+        <div className="mt-8 flex items-end gap-3"><span className={`font-display text-6xl font-bold leading-none ${scan.classification === 'Safe' ? 'text-[#63e7c1]' : scan.classification === 'Warning' ? 'text-[#f3c36c]' : 'text-[#ff829b]'}`} data-testid="text-shield-risk-score">{scan.risk}</span><span className="mb-1 font-mono-ui text-[10px] uppercase tracking-[.15em] text-[#7895bd]">/ 100 risk</span></div>
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#1b345c]"><div className={`h-full rounded-full transition-all duration-300 ${scan.classification === 'Safe' ? 'bg-[#4fd5b1]' : scan.classification === 'Warning' ? 'bg-[#e6ae5c]' : 'bg-[#f06d91]'}`} style={{ width: `${scan.risk}%` }} /></div><div className="mt-4 flex items-center justify-between"><span className={`rounded-full border px-2.5 py-1 font-mono-ui text-[10px] font-bold uppercase tracking-[.08em] ${scan.classification === 'Safe' ? 'border-[#2d957e] bg-[#0b3e46] text-[#63e7c1]' : scan.classification === 'Warning' ? 'border-[#a87840] bg-[#49341d] text-[#f3c36c]' : 'border-[#a63e68] bg-[#4b203c] text-[#ff829b]'}`} data-testid="status-shield-classification">{scan.classification}</span><span className="font-mono-ui text-[10px] text-[#7895bd]">{scan.signals.length} signal{scan.signals.length === 1 ? '' : 's'}</span></div>
+      </aside>
+    </div>
+    <div ref={analysisRef} className="grid scroll-mt-6 gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,.8fr)]">
+      <section className="animate-rise delay-3 rounded-2xl border border-[#2b5d90] bg-[#091a39] p-5 paper-shadow" data-testid="region-shield-analysis">
+        <div className="flex items-start justify-between gap-3"><div><p className="font-display text-lg font-bold text-[#eef7ff]">Detailed analysis</p><p className="mt-1 text-xs text-[#88a2c6]">Explainable matches with redacted display values</p></div><span className="flex items-center gap-1.5 font-mono-ui text-[9px] uppercase tracking-[.12em] text-[#65d8e6]"><LockKeyhole size={12} /> Local only</span></div>
+        {!lastScan && <div className="flex min-h-[220px] flex-col items-center justify-center text-center"><div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-dashed border-[#3a6798] bg-[#0b234a] text-[#63e7ef]"><EyeOff size={21} /></div><p className="text-sm font-bold text-[#dcecff]">No scan committed yet</p><p className="mt-2 max-w-xs text-xs leading-5 text-[#7895bd]">Scan the draft to pin a reviewable snapshot here. Live scoring stays in memory.</p></div>}
+        {lastScan && lastScan.signals.length === 0 && <div className="mt-5 rounded-xl border border-[#2d947c] bg-[#0a3541] p-5 text-center"><CheckCircle2 className="mx-auto mb-2 text-[#63e7c1]" size={24} /><p className="text-sm font-bold text-[#d5fff2]">No sensitive signals found</p><p className="mt-1 text-xs text-[#91c9c1]">The message is currently classified Safe at {lastScan.risk}/100 risk.</p></div>}
+        {lastScan && lastScan.signals.length > 0 && <div className="mt-5 space-y-2">{lastScan.signals.map((signal, index) => <div key={`${signal.type}-${index}`} className="rounded-xl border border-[#2b4f7e] bg-[#0b2146] p-3.5" data-testid={`card-shield-signal-${index}`}><div className="flex flex-wrap items-center justify-between gap-2"><span className="flex items-center gap-2 text-xs font-bold text-[#e8f4ff]"><span className={`h-2 w-2 rounded-full ${signal.severity === 'Critical' ? 'bg-[#b48cff]' : signal.severity === 'High' ? 'bg-[#ff829b]' : 'bg-[#f3c36c]'}`} />{signal.type}</span><span className="flex items-center gap-2"><span className="font-mono-ui text-[10px] font-bold text-[#63e7ef]">{signal.confidence}% confidence</span><span className="rounded-full border border-[#48638f] px-2 py-0.5 font-mono-ui text-[9px] uppercase text-[#a9bee0]">{signal.severity}</span></span></div><p className="mt-3 rounded-lg border border-[#3c5a87] bg-[#06142d] px-3 py-2 font-mono-ui text-[10px] text-[#ffacc0]">{signal.value}</p><p className="mt-2 text-[11px] leading-5 text-[#9bb1d2]">{signal.rationale}</p></div>)}</div>}
+      </section>
+      <section className="animate-rise delay-4 rounded-2xl border border-[#2b5d90] bg-[#091a39] p-5 paper-shadow">
+        <div className="mb-4 flex items-center justify-between"><div><p className="font-display text-lg font-bold text-[#eef7ff]">Shield settings</p><p className="mt-1 text-xs text-[#88a2c6]">UI-only controls for this prototype</p></div><Settings2 size={18} className="text-[#63e7ef]" /></div>
+        <div className="space-y-2"><ShieldToggle label="Monitoring enabled" detail="Keep live inspection active while typing" checked={monitoring} onChange={setMonitoring} icon={ShieldCheck} /><ShieldToggle label="Vibration feedback" detail="Use haptic feedback when supported" checked={vibration} onChange={setVibration} icon={Zap} /><ShieldToggle label="Sound alert" detail="Play an alert when a risky scan is committed" checked={sound} onChange={setSound} icon={sound ? Volume2 : VolumeX} /></div>
+        <div className="mt-4 rounded-xl border border-[#264b78] bg-[#0b1b3a] p-3.5"><label htmlFor="shield-sensitivity" className="flex items-center justify-between text-xs font-bold text-[#edf6ff]"><span>Sensitivity</span><span className="font-mono-ui text-[10px] uppercase text-[#63e7ef]">{sensitivity}</span></label><select id="shield-sensitivity" value={sensitivity} onChange={(event) => setSensitivity(event.target.value as typeof sensitivity)} data-testid="select-shield-sensitivity" className="mt-3 h-9 w-full rounded-lg border border-[#315d91] bg-[#06142d] px-3 text-xs text-[#dcecff] outline-none focus:border-[#63e7ef]"><option value="balanced">Balanced · fewer false positives</option><option value="high">High · broader matching</option><option value="maximum">Maximum · catch more weak signals</option></select></div>
+      </section>
+    </div>
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,.85fr)]">
+      <section className="rounded-2xl border border-[#2b5d90] bg-[#091a39] p-5 paper-shadow"><div className="flex items-center justify-between"><div><p className="font-display text-lg font-bold text-[#eef7ff]">Monitored apps</p><p className="mt-1 text-xs text-[#88a2c6]">Choose where this safety layer is intended to watch</p></div><Laptop size={18} className="text-[#63e7ef]" /></div><div className="mt-4 flex flex-wrap gap-2">{['ChatGPT', 'Gemini', 'Claude', 'Grok', 'Copilot', 'DeepSeek', 'Perplexity', 'Poe'].map((app) => <button type="button" key={app} onClick={() => toggleApp(app)} data-testid={`button-app-${app.toLowerCase()}`} className={`rounded-lg border px-3 py-2 text-[10px] font-bold transition ${appList.includes(app) ? 'border-[#51d9ed] bg-[#0d4961] text-[#d8fbff]' : 'border-[#2a4d7c] bg-[#0b1b3a] text-[#91a9cf] hover:border-[#577cab]'}`}>{app}</button>)}<button type="button" onClick={() => toggleApp('Custom app')} data-testid="button-app-custom" className={`rounded-lg border px-3 py-2 text-[10px] font-bold transition ${appList.includes('Custom app') ? 'border-[#51d9ed] bg-[#0d4961] text-[#d8fbff]' : 'border-[#2a4d7c] bg-[#0b1b3a] text-[#91a9cf] hover:border-[#577cab]'}`}>Custom app</button></div>{appList.includes('Custom app') && <div className="mt-3 flex gap-2"><input value={customApp} onChange={(event) => setCustomApp(event.target.value.slice(0, 60))} data-testid="input-custom-app" placeholder="Name a custom app" className="h-9 min-w-0 flex-1 rounded-lg border border-[#315d91] bg-[#06142d] px-3 text-xs text-[#e6f6ff] outline-none focus:border-[#63e7ef]" /><button type="button" onClick={() => { if (customApp.trim()) { setAppList((items) => [...items.filter((item) => item !== 'Custom app'), customApp.trim()]); setCustomApp(''); } }} data-testid="button-save-custom-app" className="rounded-lg bg-[#11627d] px-3 text-[10px] font-bold text-white">Add</button></div>}<div className="mt-4 flex items-center gap-2 text-[10px] text-[#7895bd]"><Link2 size={13} className="text-[#63e7ef]" />{appList.length ? `${appList.length} app${appList.length === 1 ? '' : 's'} monitored` : 'No apps selected'}</div></section>
+      <section className="rounded-2xl border border-[#2b5d90] bg-[#091a39] p-5 paper-shadow"><div className="flex items-center justify-between"><div><p className="font-display text-lg font-bold text-[#eef7ff]">Detection history</p><p className="mt-1 text-xs text-[#88a2c6]">Scores and signal names only · no message content</p></div><button type="button" onClick={() => setHistory([])} disabled={!history.length} data-testid="button-clear-shield-history" className="flex items-center gap-1.5 rounded-lg border border-[#2a4d7c] px-2.5 py-1.5 text-[10px] font-bold text-[#91a9cf] hover:border-[#ff829b] hover:text-[#ffacc0] disabled:cursor-not-allowed disabled:opacity-40"><History size={12} /> Clear</button></div>{!history.length && <div className="flex min-h-[115px] items-center justify-center text-center text-xs text-[#7895bd]">No local scans yet.</div>}{history.length > 0 && <div className="mt-4 max-h-[190px] space-y-2 overflow-auto pr-1">{history.map((entry, index) => <div key={`${entry.timestamp}-${index}`} className="flex items-center justify-between gap-3 rounded-lg border border-[#244873] bg-[#0b1c3b] px-3 py-2.5" data-testid={`row-shield-history-${index}`}><div className="min-w-0"><p className="truncate text-[10px] font-bold text-[#dcecff]">{entry.signals.length ? entry.signals.join(' · ') : 'No signals'}</p><p className="mt-1 font-mono-ui text-[9px] text-[#7895bd]">{formatDate(entry.timestamp)}</p></div><span className={`shrink-0 font-mono-ui text-[11px] font-bold ${entry.classification === 'Safe' ? 'text-[#63e7c1]' : entry.classification === 'Warning' ? 'text-[#f3c36c]' : 'text-[#ff829b]'}`}>{entry.risk}/100</span></div>)}</div>}</section>
+    </div>
+    {overlay && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#020817]/80 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="shield-warning-title" data-testid="dialog-shield-warning"><div className="w-full max-w-lg rounded-2xl border border-[#aa4d73] bg-[#0b1737] p-5 shadow-[0_24px_80px_rgba(0,0,0,.6)] md:p-6"><div className="flex items-start gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#bc5c7c] bg-[#4b203c] text-[#ff829b]"><AlertTriangle size={20} /></div><div><h3 id="shield-warning-title" className="font-display text-xl font-bold text-[#f5f7ff]">Review before sending</h3><p className="mt-1 text-xs leading-5 text-[#afc0df]">This message contains signals that may expose private or confidential data.</p></div><button type="button" onClick={() => setOverlay(false)} aria-label="Close warning" data-testid="button-close-shield-warning" className="ml-auto rounded-lg p-1 text-[#91a9cf] hover:bg-[#172b53] hover:text-white"><X size={17} /></button></div><div className="mt-5 rounded-xl border border-[#315184] bg-[#08152f] p-4"><div className="flex items-center justify-between"><span className="font-mono-ui text-[10px] uppercase tracking-[.12em] text-[#91a9cf]">Risk score</span><span className="font-display text-3xl font-bold text-[#ff829b]">{scan.risk}<span className="font-mono-ui text-xs text-[#91a9cf]"> / 100</span></span></div><div className="mt-3 flex flex-wrap gap-1.5">{scan.signals.map((signal) => <span key={signal.type} className="rounded-full border border-[#78405f] bg-[#351d3a] px-2.5 py-1 font-mono-ui text-[9px] font-bold text-[#ffacc0]">{signal.type}</span>)}</div></div><div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={cancelSend} data-testid="button-cancel-shield-send" className="rounded-xl border border-[#3b5787] px-4 py-2.5 text-xs font-bold text-[#a9bee0] hover:border-[#ff829b] hover:text-[#ffacc0]">Cancel</button><button type="button" onClick={() => { setOverlay(false); editorRef.current?.focus(); }} data-testid="button-review-shield-message" className="rounded-xl border border-[#51d9ed] bg-[#0d3855] px-4 py-2.5 text-xs font-bold text-[#d9fbff] hover:bg-[#12516d]">Review message</button><button type="button" onClick={sendAnyway} data-testid="button-send-shield-anyway" className="rounded-xl bg-[#b04e76] px-4 py-2.5 text-xs font-bold text-white hover:bg-[#c26086]">Send anyway</button></div></div></div>}
+  </div>;
+}
+
 function Login() {
   const [, setLocation] = useLocation();
   const login = useLogin();
@@ -541,7 +699,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function Router() {
-  return <Switch><Route path="/login" component={Login} /><Route path="/"><ProtectedRoute><AppShell><Overview /></AppShell></ProtectedRoute></Route><Route path="/inspector"><ProtectedRoute><AppShell><Inspector /></AppShell></ProtectedRoute></Route><Route path="/reports"><ProtectedRoute><AppShell><Reports /></AppShell></ProtectedRoute></Route><Route path="/assistant"><ProtectedRoute><AppShell><Assistant /></AppShell></ProtectedRoute></Route><Route component={NotFound} /></Switch>;
+  return <Switch><Route path="/login" component={Login} /><Route path="/"><ProtectedRoute><AppShell><Overview /></AppShell></ProtectedRoute></Route><Route path="/inspector"><ProtectedRoute><AppShell><Inspector /></AppShell></ProtectedRoute></Route><Route path="/shield"><ProtectedRoute><AppShell><PrivacyShield /></AppShell></ProtectedRoute></Route><Route path="/reports"><ProtectedRoute><AppShell><Reports /></AppShell></ProtectedRoute></Route><Route path="/assistant"><ProtectedRoute><AppShell><Assistant /></AppShell></ProtectedRoute></Route><Route component={NotFound} /></Switch>;
 }
 
 function App() {
