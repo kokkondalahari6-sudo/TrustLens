@@ -75,8 +75,11 @@ function ProfileMenu({ user, open, logoutPending, onToggle, onLogout }: {
   onToggle: () => void;
   onLogout: () => void;
 }) {
-  return <div className="relative" data-profile-area="true">
-    <button type="button" aria-label="Open profile menu" aria-expanded={open} data-testid="button-profile" onClick={onToggle} className={`interactive-control flex items-center gap-2 rounded-xl p-1 transition hover:bg-[#e9e6dd] ${open ? 'bg-[#e9e6dd]' : ''}`}>
+  return <div className="relative flex items-center gap-2" data-profile-area="true">
+    <button type="button" aria-label="Log out of TrustLens" data-testid="button-header-logout" onClick={onLogout} disabled={logoutPending} className="interactive-control relative z-10 hidden cursor-pointer items-center gap-1.5 rounded-lg border border-[#7c355a] bg-[#2b1633] px-2.5 py-2 text-[10px] font-bold text-[#ffb2c7] transition hover:border-[#ff6f9a] hover:bg-[#3b1c42] sm:flex">
+      <LogOut size={13} /> {logoutPending ? 'Signing out…' : 'Log out'}
+    </button>
+    <button type="button" aria-label="Open profile menu" aria-expanded={open} data-testid="button-profile" onClick={onToggle} className={`interactive-control relative z-10 flex min-h-10 min-w-10 cursor-pointer items-center justify-center gap-2 rounded-xl p-1 transition hover:bg-[#e9e6dd] ${open ? 'bg-[#e9e6dd]' : ''}`}>
       <div className={`flex h-8 w-8 items-center justify-center rounded-full bg-[#d6ad77] text-[10px] font-bold text-[#273c45] transition ${open ? 'scale-110 shadow-[0_0_16px_rgba(65,217,255,.45)]' : ''}`}>{userInitials(user)}</div>
       <ChevronDown size={14} className={`text-[#58737a] transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
     </button>
@@ -85,7 +88,7 @@ function ProfileMenu({ user, open, logoutPending, onToggle, onLogout }: {
         <p className="flex items-center gap-2 text-xs font-bold text-[#eef6ff]"><UserRound size={13} className="text-[#5fe1ff]" />{userLabel(user)}</p>
         <p className="mt-1 truncate text-[10px] text-[#7893ba]">{user?.email ?? 'Protected workspace'}</p>
       </div>
-      <button type="button" role="menuitem" data-testid="button-logout" onClick={onLogout} disabled={logoutPending} className="interactive-control mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-[#ff9bb8] transition hover:bg-[#2b1633] disabled:cursor-wait disabled:opacity-70">
+      <button type="button" role="menuitem" data-testid="button-logout" onClick={onLogout} disabled={logoutPending} className="interactive-control relative z-10 mt-1 flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-[#ff9bb8] transition hover:bg-[#2b1633] disabled:cursor-wait disabled:opacity-70">
         {logoutPending ? <><RefreshCw size={14} className="animate-spin" /> Signing out…</> : <><LogOut size={14} /> Log out</>}
       </button>
     </div>}
@@ -130,16 +133,14 @@ function AppShell({ children }: { children: React.ReactNode }) {
       window.setTimeout(() => setLocation('/'), 140);
     }
   };
-  const logout = () => {
+   const logout = () => {
     if (logoutPending) return;
     setLogoutPending(true);
-    window.setTimeout(() => {
-      window.localStorage.removeItem('trustlens_token');
-      window.localStorage.removeItem('trustlens_user');
-      queryClient.clear();
-      setProfileOpen(false);
-      setLocation('/login');
-    }, 420);
+     window.localStorage.removeItem('trustlens_token');
+     window.localStorage.removeItem('trustlens_user');
+     queryClient.clear();
+     setProfileOpen(false);
+     setLocation('/login');
   };
   useEffect(() => {
     if (!profileOpen) return;
@@ -157,7 +158,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, [profileOpen]);
   return <div className="noise flex min-h-[100dvh] bg-[#f3f0e7]"><Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} user={user} profileOpen={profileOpen} logoutPending={logoutPending} onToggleProfile={() => setProfileOpen((open) => !open)} onLogout={logout} />{mobileOpen && <button aria-label="Close navigation" data-testid="button-close-navigation" className="fixed inset-0 z-30 bg-[#112f40]/40 md:hidden" onClick={() => setMobileOpen(false)} /> }
-     <main className="min-w-0 flex-1"><header className="flex h-[84px] items-center justify-between border-b border-[#dedbd1] bg-[#f8f6ef]/90 px-5 backdrop-blur md:px-10"><div className="flex min-w-0 items-center gap-2 md:gap-3"><button aria-label="Go back" data-testid="button-go-back" className={`interactive-control flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#254778] bg-[#09142d] text-[#91b5dc] transition hover:-translate-x-0.5 hover:border-[#41d9ff] hover:text-[#5fe1ff] ${backPending ? 'pointer-events-none scale-90 border-[#41d9ff] text-[#5fe1ff]' : ''}`} onClick={goBack}>{backPending ? <RefreshCw size={16} className="animate-spin" /> : <ArrowLeft size={17} />}</button><button aria-label="Open navigation" data-testid="button-open-navigation" className="rounded-lg p-2 text-[#42606a] hover:bg-[#e8e5db] md:hidden" onClick={() => setMobileOpen(true)}><Menu size={20} /></button><div className="min-w-0"><p className="font-mono-ui text-[9px] font-bold uppercase tracking-[.2em] text-[#799098]">TrustLens / {title}</p><h1 className="mt-1 truncate font-display text-[22px] font-bold text-[#183847]">{title}</h1></div></div><div className="flex items-center gap-2 md:gap-3"><Link href="/assistant" data-testid="link-header-assistant" className="interactive-control flex items-center gap-2 rounded-xl border border-[#26748d] bg-[#123f53] px-3 py-2 text-[11px] font-bold text-[#62e9f0] shadow-[0_0_18px_rgba(39,205,226,.14)] hover:-translate-y-0.5 hover:border-[#41d9ff] hover:text-white"><MessageCircle size={14} /><span className="hidden sm:inline">Ask TrustLens</span><span className="sm:hidden">Ask</span></Link><div className="hidden items-center gap-2 rounded-full border border-[#ddd9ce] bg-[#fdfbf5] px-3 py-1.5 text-[10px] font-semibold text-[#58737a] lg:flex"><span className="h-1.5 w-1.5 rounded-full bg-[#53a47d]" />Protected workspace</div><button data-testid="button-help" aria-label="Help" className="hidden h-8 w-8 items-center justify-center rounded-full border border-[#dcd9d0] text-[#58737a] hover:bg-[#e9e6dd] sm:flex"><Info size={15} /></button><ProfileMenu user={user} open={profileOpen} logoutPending={logoutPending} onToggle={() => setProfileOpen((open) => !open)} onLogout={logout} /></div></header><div className="mx-auto max-w-[1440px] p-5 md:p-10">{children}</div><Link href="/assistant" data-testid="button-floating-assistant" aria-label="Open TrustLens security assistant" className="interactive-control fixed bottom-5 right-5 z-30 flex items-center gap-2 rounded-full border border-[#41d9ff] bg-[#102d58] px-4 py-3 text-xs font-bold text-[#effaff] shadow-[0_0_28px_rgba(39,205,226,.3)] hover:-translate-y-1 hover:bg-[#163d78]"><MessageCircle size={16} /><span>Ask TrustLens</span></Link></main>
+      <main className="min-w-0 flex-1"><header className="relative z-40 flex h-[84px] items-center justify-between border-b border-[#dedbd1] bg-[#f8f6ef]/90 px-5 backdrop-blur md:px-10"><div className="flex min-w-0 items-center gap-2 md:gap-3"><button aria-label="Go back" data-testid="button-go-back" className={`interactive-control flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#254778] bg-[#09142d] text-[#91b5dc] transition hover:-translate-x-0.5 hover:border-[#41d9ff] hover:text-[#5fe1ff] ${backPending ? 'pointer-events-none scale-90 border-[#41d9ff] text-[#5fe1ff]' : ''}`} onClick={goBack}>{backPending ? <RefreshCw size={16} className="animate-spin" /> : <ArrowLeft size={17} />}</button><button aria-label="Open navigation" data-testid="button-open-navigation" className="rounded-lg p-2 text-[#42606a] hover:bg-[#e8e5db] md:hidden" onClick={() => setMobileOpen(true)}><Menu size={20} /></button><div className="min-w-0"><p className="font-mono-ui text-[9px] font-bold uppercase tracking-[.2em] text-[#799098]">TrustLens / {title}</p><h1 className="mt-1 truncate font-display text-[22px] font-bold text-[#183847]">{title}</h1></div></div><div className="flex items-center gap-2 md:gap-3"><Link href="/assistant" data-testid="link-header-assistant" className="interactive-control flex items-center gap-2 rounded-xl border border-[#26748d] bg-[#123f53] px-3 py-2 text-[11px] font-bold text-[#62e9f0] shadow-[0_0_18px_rgba(39,205,226,.14)] hover:-translate-y-0.5 hover:border-[#41d9ff] hover:text-white"><MessageCircle size={14} /><span className="hidden sm:inline">Ask TrustLens</span><span className="sm:hidden">Ask</span></Link><div className="hidden items-center gap-2 rounded-full border border-[#ddd9ce] bg-[#fdfbf5] px-3 py-1.5 text-[10px] font-semibold text-[#58737a] lg:flex"><span className="h-1.5 w-1.5 rounded-full bg-[#53a47d]" />Protected workspace</div><button data-testid="button-help" aria-label="Help" className="hidden h-8 w-8 items-center justify-center rounded-full border border-[#dcd9d0] text-[#58737a] hover:bg-[#e9e6dd] sm:flex"><Info size={15} /></button><ProfileMenu user={user} open={profileOpen} logoutPending={logoutPending} onToggle={() => setProfileOpen((open) => !open)} onLogout={logout} /></div></header><div className="mx-auto max-w-[1440px] p-5 md:p-10">{children}</div><Link href="/assistant" data-testid="button-floating-assistant" aria-label="Open TrustLens security assistant" className="interactive-control fixed bottom-5 right-5 z-30 flex items-center gap-2 rounded-full border border-[#41d9ff] bg-[#102d58] px-4 py-3 text-xs font-bold text-[#effaff] shadow-[0_0_28px_rgba(39,205,226,.3)] hover:-translate-y-1 hover:bg-[#163d78]"><MessageCircle size={16} /><span>Ask TrustLens</span></Link></main>
   </div>;
 }
 

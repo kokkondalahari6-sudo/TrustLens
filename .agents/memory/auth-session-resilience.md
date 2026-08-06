@@ -14,3 +14,9 @@ Dashboard responses should also be treated as untrusted at the rendering boundar
 **Why:** Authenticated users can still crash the shell when an API returns an empty, stale, or partially shaped response even though the token itself is valid.
 
 **How to apply:** Prefer safe empty states and fallback labels for optional dashboard data, while preserving the API error state for failed requests.
+
+Auth controls should use explicit pointer targets and sit above decorative layers; logout should clear session state immediately rather than relying on a delayed visual transition.
+
+**Why:** A visually present avatar or delayed logout can feel non-responsive even when the underlying handler is correct, especially in a layered neon shell.
+
+**How to apply:** Keep profile and logout controls above the shell chrome, offer a direct authenticated logout action, and route sign-in errors through visible form feedback.
