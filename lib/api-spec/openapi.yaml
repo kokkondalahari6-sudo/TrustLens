@@ -16,6 +16,8 @@ tags:
     description: Payload inspection operations
   - name: audit
     description: Security audit operations
+  - name: chatbot
+    description: TrustLens security assistant operations
 paths:
   /healthz:
     get:
@@ -90,6 +92,28 @@ paths:
                 $ref: "#/components/schemas/InspectionResult"
         "400":
           description: Invalid payload
+  /chat:
+    post:
+      operationId: sendChatMessage
+      tags: [chatbot]
+      summary: Ask the TrustLens security assistant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatInput"
+      responses:
+        "200":
+          description: Assistant response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatResponse"
+        "400":
+          description: Invalid chat message
+        "503":
+          description: Chat service unavailable
   /audit/logs:
     get:
       operationId: getAuditLogs
@@ -174,6 +198,34 @@ components:
           type: string
           minLength: 1
       required: [payloadText]
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+          minLength: 1
+      required: [role, content]
+    ChatInput:
+      type: object
+      properties:
+        message:
+          type: string
+          minLength: 1
+        history:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+      required: [message]
+    ChatResponse:
+      type: object
+      properties:
+        reply:
+          type: string
+      required: [reply]
     Threat:
       type: object
       properties:

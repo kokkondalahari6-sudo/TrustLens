@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { getGetAuditLogsQueryKey, getGetAuditStatsQueryKey, setAuthTokenGetter, useAnalyzePayload, useGetAuditLogs, useGetAuditStats, useHealthCheck, useLogin, useRegister } from '@workspace/api-client-react';
-import { Activity, ArrowLeft, ArrowRight, BarChart3, Check, ChevronDown, ClipboardCheck, Clock3, Copy, Download, FileDown, FileSearch, FileText, Fingerprint, Gauge, KeyRound, LockKeyhole, LogIn, LogOut, Menu, RefreshCw, Search, ShieldCheck, ShieldAlert, Sparkles, Terminal, Timer, Upload, X, AlertTriangle, CircleAlert, CircleCheck, Info, UserRound } from 'lucide-react';
+import { getGetAuditLogsQueryKey, getGetAuditStatsQueryKey, setAuthTokenGetter, useAnalyzePayload, useGetAuditLogs, useGetAuditStats, useHealthCheck, useLogin, useRegister, useSendChatMessage } from '@workspace/api-client-react';
+import { Activity, ArrowLeft, ArrowRight, BarChart3, Bot, Check, ChevronDown, ClipboardCheck, Clock3, Copy, Download, FileDown, FileSearch, FileText, Fingerprint, Gauge, KeyRound, LockKeyhole, LogIn, LogOut, Menu, MessageCircle, RefreshCw, Search, Send, ShieldCheck, ShieldAlert, Sparkles, Terminal, Timer, Upload, X, AlertTriangle, CircleAlert, CircleCheck, Info, UserRound } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -102,7 +102,7 @@ function Sidebar({ mobileOpen, setMobileOpen, user, profileOpen, logoutPending, 
   onLogout: () => void;
 }) {
   const [location] = useLocation();
-  const nav = [{ href: '/', label: 'Overview', icon: Gauge }, { href: '/inspector', label: 'Inspector', icon: FileSearch }, { href: '/reports', label: 'Audit reports', icon: BarChart3 }];
+  const nav = [{ href: '/', label: 'Overview', icon: Gauge }, { href: '/inspector', label: 'Inspector', icon: FileSearch }, { href: '/reports', label: 'Audit reports', icon: BarChart3 }, { href: '/assistant', label: 'Security assistant', icon: MessageCircle }];
   return <aside className={`${mobileOpen ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-40 flex w-[258px] flex-col bg-[#112f40] text-[#e5f0ed] transition-transform duration-300 md:relative md:translate-x-0`} data-testid="sidebar">
     <div className="flex h-[84px] items-center border-b border-[#315061] px-7"><BrandMark /></div>
     <div className="px-5 pt-8"><p className="mb-3 px-3 font-mono-ui text-[9px] font-bold uppercase tracking-[.2em] text-[#91abb0]">Workspace</p>
@@ -120,7 +120,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const [user] = useState<StoredUser>(() => getStoredUser());
   const [location] = useLocation();
   const [, setLocation] = useLocation();
-  const title = location === '/inspector' ? 'Payload inspector' : location === '/reports' ? 'Audit reports' : 'Overview';
+  const title = location === '/inspector' ? 'Payload inspector' : location === '/reports' ? 'Audit reports' : location === '/assistant' ? 'Security assistant' : 'Overview';
   const goBack = () => {
     if (backPending) return;
     setBackPending(true);
@@ -379,6 +379,90 @@ function Reports() {
   return <div className="space-y-7"><div className="animate-rise flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><div className="mb-3 flex items-center gap-2 font-mono-ui text-[10px] font-bold uppercase tracking-[.18em] text-[#3f8c70]"><span className="h-px w-7 bg-[#76c6a9]" />Accountability trail</div><h2 className="font-display text-[38px] font-bold leading-none tracking-[-.07em] text-[#183847] md:text-[46px]">Audit reports.</h2><p className="mt-3 text-sm leading-6 text-[#718488]">A durable record of the data your team caught before it could travel.</p></div><div className="flex items-center gap-1 rounded-xl border border-[#dddcd3] bg-[#faf9f3] p-1">{options.map((option) => <button key={option} onClick={() => setFilter(option)} data-testid={`button-filter-${option.toLowerCase()}`} className={`rounded-lg px-3 py-2 font-mono-ui text-[10px] font-bold uppercase tracking-[.08em] transition ${filter === option ? 'bg-[#183f4f] text-white' : 'text-[#71878a] hover:bg-[#eeece3]'}`}>{option === 'ALL' ? 'All' : severityStyles[option].label}</button>)}</div></div><section className="animate-rise delay-1 rounded-2xl border border-[#e1ded5] bg-[#faf9f3] paper-shadow"><div className="flex items-center justify-between border-b border-[#e7e4db] p-5"><div><p className="font-display text-lg font-bold text-[#183847]">{filter === 'ALL' ? 'All inspections' : `${severityStyles[filter].label} severity`}</p><p className="mt-1 text-xs text-[#7a8c8f]">{logs.data?.length ?? 0} logged payloads</p></div><div className="flex items-center gap-2 text-[10px] text-[#829394]"><Clock3 size={13} /> Sorted newest first</div></div><QueryState loading={logs.isLoading} error={logs.isError} onRetry={() => logs.refetch()} label="reports"><AuditTable rows={logs.data ?? []} /></QueryState></section></div>;
 }
 
+type ChatEntry = { role: 'user' | 'assistant'; content: string };
+
+function Assistant() {
+  const sendMessage = useSendChatMessage();
+  const [messages, setMessages] = useState<ChatEntry[]>([
+    {
+      role: 'assistant',
+      content: 'I’m your TrustLens security assistant. Ask me about sensitive-data detection, redaction, DLP, compliance, or a safe next step.',
+    },
+  ]);
+  const [draft, setDraft] = useState('');
+  const [error, setError] = useState('');
+
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const message = draft.trim();
+    if (!message || sendMessage.isPending) return;
+    setError('');
+    setDraft('');
+    setMessages((current) => [...current, { role: 'user', content: message }]);
+    sendMessage.mutate(
+      {
+        data: {
+          message,
+          history: messages.slice(-20),
+        },
+      },
+      {
+        onSuccess: (response) => {
+          setMessages((current) => [...current, { role: 'assistant', content: response.reply }]);
+        },
+        onError: () => {
+          setError('The assistant could not respond. Try again in a moment.');
+        },
+      },
+    );
+  };
+
+  const quickPrompts = [
+    'How should I handle an exposed API key?',
+    'Explain the difference between PII and a secret.',
+    'What should a secure redaction workflow include?',
+  ];
+
+  return <div className="space-y-7">
+    <div className="animate-rise">
+      <div className="mb-3 flex items-center gap-2 font-mono-ui text-[10px] font-bold uppercase tracking-[.18em] text-[#3f8c70]"><span className="h-px w-7 bg-[#76c6a9]" />Ask securely</div>
+      <h2 className="font-display text-[38px] font-bold leading-none tracking-[-.07em] text-[#183847] md:text-[46px]">Security assistant.</h2>
+      <p className="mt-3 max-w-2xl text-sm leading-6 text-[#718488]">Get practical privacy and security guidance without leaving your protected workspace. Never paste live credentials or secrets into chat.</p>
+    </div>
+    <section className="animate-rise delay-1 overflow-hidden rounded-2xl border border-[#e1ded5] bg-[#faf9f3] paper-shadow">
+      <div className="flex items-center justify-between border-b border-[#e7e4db] p-5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#26748d] bg-[#123f53] text-[#62e9f0] shadow-[0_0_18px_rgba(39,205,226,.18)]"><Bot size={19} /></div>
+          <div><p className="font-display text-lg font-bold text-[#183847]">TrustLens copilot</p><p className="mt-1 flex items-center gap-1.5 font-mono-ui text-[9px] uppercase tracking-[.12em] text-[#7a8c8f]"><span className="h-1.5 w-1.5 rounded-full bg-[#27cde2]" />Protected assistant</p></div>
+        </div>
+        <span className="hidden items-center gap-1.5 rounded-full border border-[#d8e2d8] bg-[#eef5ed] px-3 py-1.5 text-[10px] font-semibold text-[#477269] sm:flex"><LockKeyhole size={12} /> No credentials requested</span>
+      </div>
+      <div className="min-h-[390px] space-y-4 p-5 md:p-7" aria-live="polite">
+        {messages.map((entry, index) => <div key={`${entry.role}-${index}`} className={`flex gap-3 ${entry.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+          {entry.role === 'assistant' && <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#123f53] text-[#62e9f0]"><Bot size={14} /></div>}
+          <div className={`max-w-[min(700px,85%)] rounded-2xl px-4 py-3 text-sm leading-6 ${entry.role === 'user' ? 'rounded-br-md bg-[#183f4f] text-[#f6f4eb]' : 'rounded-bl-md border border-[#dce5db] bg-[#eef5ed] text-[#31525c]'}`}>
+            <p className="whitespace-pre-wrap">{entry.content}</p>
+          </div>
+          {entry.role === 'user' && <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#656de7] text-[10px] font-bold text-white">{userInitials(getStoredUser())}</div>}
+        </div>)}
+        {sendMessage.isPending && <div className="flex items-center gap-3 text-xs text-[#829394]"><div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#123f53] text-[#62e9f0]"><Bot size={14} /></div><span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#27cde2]" /><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#27cde2] [animation-delay:120ms]" /><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#27cde2] [animation-delay:240ms]" />Thinking securely…</span></div>}
+        {error && <div className="flex items-center gap-2 rounded-xl border border-[#7c355a] bg-[#2b1633] px-3 py-2 text-xs text-[#ff9bb8]"><CircleAlert size={14} />{error}</div>}
+      </div>
+      <div className="border-t border-[#e7e4db] bg-[#f7f5ed] p-5 md:p-7">
+        <div className="mb-3 flex flex-wrap gap-2">
+          {quickPrompts.map((prompt) => <button key={prompt} type="button" onClick={() => setDraft(prompt)} className="rounded-full border border-[#d8e2d8] bg-[#eef5ed] px-3 py-1.5 text-left text-[10px] font-semibold text-[#477269] transition hover:border-[#65af93] hover:bg-[#e4f1e6]">{prompt}</button>)}
+        </div>
+        <form onSubmit={submit} className="flex items-end gap-3">
+          <label htmlFor="assistant-message" className="sr-only">Message the security assistant</label>
+          <textarea id="assistant-message" value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} rows={2} maxLength={4000} placeholder="Ask a privacy or security question…" className="min-h-[54px] flex-1 resize-none rounded-xl border border-[#d7ddd5] bg-[#fcfcf6] px-4 py-3 text-sm text-[#315462] outline-none transition-colors placeholder:text-[#a4b0aa] focus:border-[#65af93] focus:ring-2 focus:ring-[#bde5d3]" />
+          <button type="submit" disabled={!draft.trim() || sendMessage.isPending} data-testid="button-send-assistant" className="flex h-[54px] items-center gap-2 rounded-xl bg-[#183f4f] px-4 text-xs font-bold text-[#f6f4eb] shadow-[0_4px_0_#0d2b38] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-45">{sendMessage.isPending ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}<span className="hidden sm:inline">Send</span></button>
+        </form>
+        <p className="mt-3 flex items-center gap-1.5 text-[10px] text-[#829394]"><Info size={12} />Do not include passwords, API keys, tokens, or full payment-card numbers.</p>
+      </div>
+    </section>
+  </div>;
+}
+
 function Login() {
   const [, setLocation] = useLocation();
   const login = useLogin();
@@ -432,7 +516,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function Router() {
-  return <Switch><Route path="/login" component={Login} /><Route path="/"><ProtectedRoute><AppShell><Overview /></AppShell></ProtectedRoute></Route><Route path="/inspector"><ProtectedRoute><AppShell><Inspector /></AppShell></ProtectedRoute></Route><Route path="/reports"><ProtectedRoute><AppShell><Reports /></AppShell></ProtectedRoute></Route><Route component={NotFound} /></Switch>;
+  return <Switch><Route path="/login" component={Login} /><Route path="/"><ProtectedRoute><AppShell><Overview /></AppShell></ProtectedRoute></Route><Route path="/inspector"><ProtectedRoute><AppShell><Inspector /></AppShell></ProtectedRoute></Route><Route path="/reports"><ProtectedRoute><AppShell><Reports /></AppShell></ProtectedRoute></Route><Route path="/assistant"><ProtectedRoute><AppShell><Assistant /></AppShell></ProtectedRoute></Route><Route component={NotFound} /></Switch>;
 }
 
 function App() {

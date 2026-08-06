@@ -23,6 +23,8 @@ import type {
   AuditLog,
   AuditStats,
   AuthSession,
+  ChatInput,
+  ChatResponse,
   GetAuditLogsParams,
   HealthStatus,
   InspectionInput,
@@ -347,6 +349,77 @@ export const useAnalyzePayload = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getAnalyzePayloadMutationOptions(options));
+    }
+
+export const getSendChatMessageUrl = () => {
+
+
+
+
+  return `/api/chat`
+}
+
+/**
+ * @summary Ask the TrustLens security assistant
+ */
+export const sendChatMessage = async (chatInput: ChatInput, options?: Parameters<typeof customFetch>[1]): Promise<ChatResponse> => {
+
+  return customFetch<ChatResponse>(getSendChatMessageUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(chatInput)
+  }
+);}
+
+
+
+
+
+export const getSendChatMessageMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendChatMessage>>, TError,{data: BodyType<ChatInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendChatMessage>>, TError,{data: BodyType<ChatInput>}, TContext> => {
+
+const mutationKey = ['sendChatMessage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendChatMessage>>, {data: BodyType<ChatInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  sendChatMessage(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendChatMessageMutationResult = NonNullable<Awaited<ReturnType<typeof sendChatMessage>>>
+    export type SendChatMessageMutationBody = BodyType<ChatInput>
+    export type SendChatMessageMutationError = ErrorType<void>
+
+    /**
+ * @summary Ask the TrustLens security assistant
+ */
+export const useSendChatMessage = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendChatMessage>>, TError,{data: BodyType<ChatInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendChatMessage>>,
+        TError,
+        {data: BodyType<ChatInput>},
+        TContext
+      > => {
+      return useMutation(getSendChatMessageMutationOptions(options));
     }
 
 export const getGetAuditLogsUrl = (params?: GetAuditLogsParams,) => {

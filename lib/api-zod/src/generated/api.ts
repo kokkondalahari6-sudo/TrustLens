@@ -96,6 +96,28 @@ export const AnalyzePayloadResponse = zod.object({
 
 
 /**
+ * @summary Ask the TrustLens security assistant
+ */
+
+
+export const sendChatMessageBodyHistoryMax = 20;
+
+
+
+export const SendChatMessageBody = zod.object({
+  "message": zod.string().min(1),
+  "history": zod.array(zod.object({
+  "role": zod.enum(['user', 'assistant']),
+  "content": zod.string().min(1)
+})).max(sendChatMessageBodyHistoryMax).optional()
+})
+
+export const SendChatMessageResponse = zod.object({
+  "reply": zod.string()
+})
+
+
+/**
  * @summary List recent inspection audit logs
  */
 export const GetAuditLogsQueryParams = zod.object({

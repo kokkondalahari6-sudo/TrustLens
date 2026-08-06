@@ -2,3 +2,4 @@
 - [Gemini inspection resilience](gemini-inspection-resilience.md) — keep local explainable safety checks as a bounded fallback when Gemini model availability or quota interrupts scans.
 - [PDF inspection privacy](pdf-inspection-privacy.md) — extract PDF text in the browser and send only text to the inspection API; original files are not retained.
 - [Auth session resilience](auth-session-resilience.md) — persisted browser session data must be validated and safely fall back when malformed.
+- [Chat privacy boundary](chat-privacy-boundary.md) — keep assistant credentials server-side and prevent users from sharing live secrets in chat.

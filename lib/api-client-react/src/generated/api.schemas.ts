@@ -35,6 +35,31 @@ export interface InspectionInput {
   payloadText: string;
 }
 
+export type ChatMessageRole = typeof ChatMessageRole[keyof typeof ChatMessageRole];
+
+
+export const ChatMessageRole = {
+  user: 'user',
+  assistant: 'assistant',
+} as const;
+
+export interface ChatMessage {
+  role: ChatMessageRole;
+  /** @minLength 1 */
+  content: string;
+}
+
+export interface ChatInput {
+  /** @minLength 1 */
+  message: string;
+  /** @maxItems 20 */
+  history?: ChatMessage[];
+}
+
+export interface ChatResponse {
+  reply: string;
+}
+
 export type ThreatSeverity = typeof ThreatSeverity[keyof typeof ThreatSeverity];
 
 
