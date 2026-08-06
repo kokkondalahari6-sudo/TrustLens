@@ -5,6 +5,23 @@ import { authMiddleware, requireUserId, type AuthenticatedRequest } from "../mid
 
 const router: IRouter = Router();
 
+function offlineGuidance(message: string) {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("api key") || normalized.includes("token") || normalized.includes("secret") || normalized.includes("password")) {
+    return "If a credential may have been exposed, revoke or rotate it immediately, check access logs for misuse, remove it from source control and logs, and replace it with a secret-manager reference. Never paste the live value into chat.";
+  }
+  if (normalized.includes("pii") || normalized.includes("personal") || normalized.includes("email") || normalized.includes("phone")) {
+    return "PII is information that can identify or meaningfully describe a person, such as an email, phone number, address, location, or identifier. Minimize collection, redact before sharing, restrict access, and retain it only as long as needed.";
+  }
+  if (normalized.includes("redact") || normalized.includes("dlp") || normalized.includes("payload")) {
+    return "A safe DLP workflow should detect sensitive patterns, explain why each signal matched, replace values with typed placeholders, preserve a before/after audit trail without storing raw secrets, and require review for high-risk findings.";
+  }
+  if (normalized.includes("compliance") || normalized.includes("gdpr") || normalized.includes("soc") || normalized.includes("hipaa") || normalized.includes("pci")) {
+    return "Start with data classification and least privilege, then document collection purpose, retention, access controls, encryption, incident response, and evidence of regular reviews. Map the controls to the frameworks that apply to your organization.";
+  }
+  return "The AI assistant is temporarily at capacity, so I’m in offline guidance mode. For privacy work, avoid sharing live credentials, classify sensitive data before it moves, redact values before logging, and keep an auditable record of the decision.";
+}
+
 router.post("/chat", authMiddleware, async (req: AuthenticatedRequest, res): Promise<void> => {
   const userId = requireUserId(req, res);
   if (!userId) return;
@@ -57,6 +74,11 @@ ${message}`;
     res.json(SendChatMessageResponse.parse({ reply }));
   } catch (error) {
     req.log.error({ error }, "Chat assistant request failed");
+    const status = (error as { status?: number }).status;
+    if (status === 429 || status === 500 || status === 503) {
+      res.json({ reply: `${offlineGuidance(message)}\n\nAI analysis will resume automatically when provider capacity is available.` });
+      return;
+    }
     res.status(503).json({ error: "The security assistant is temporarily unavailable. Please try again." });
   }
 });
