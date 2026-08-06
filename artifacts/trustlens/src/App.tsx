@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/reac
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { getGetAuditLogsQueryKey, getGetAuditStatsQueryKey, setAuthTokenGetter, useAnalyzePayload, useGetAuditLogs, useGetAuditStats, useHealthCheck, useLogin, useRegister, useSendChatMessage } from '@workspace/api-client-react';
-import { Activity, ArrowLeft, ArrowRight, BarChart3, Bot, Check, ChevronDown, ClipboardCheck, Clock3, Copy, Download, FileDown, FileSearch, FileText, Fingerprint, Gauge, KeyRound, LockKeyhole, LogIn, LogOut, Menu, MessageCircle, RefreshCw, Search, Send, ShieldCheck, ShieldAlert, Sparkles, Terminal, Timer, Upload, X, AlertTriangle, CircleAlert, CircleCheck, Info, UserRound } from 'lucide-react';
+import { Activity, ArrowLeft, ArrowRight, BarChart3, Bot, Check, ChevronDown, ClipboardCheck, Clock3, Copy, Download, FileDown, FileSearch, FileText, Fingerprint, Gauge, KeyRound, LockKeyhole, LogIn, LogOut, Mail, Menu, MessageCircle, RefreshCw, Search, Send, ShieldCheck, ShieldAlert, Sparkles, Terminal, Timer, Upload, X, AlertTriangle, CircleAlert, CircleCheck, Info, UserRound } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -384,6 +384,7 @@ type ChatEntry = { role: 'user' | 'assistant'; content: string };
 
 function Assistant() {
   const sendMessage = useSendChatMessage();
+  const currentUser = getStoredUser();
   const [messages, setMessages] = useState<ChatEntry[]>([
     {
       role: 'assistant',
@@ -424,6 +425,12 @@ function Assistant() {
     'What should a secure redaction workflow include?',
   ];
 
+  const emailResponse = (content: string) => {
+    const subject = 'TrustLens security assistant response';
+    const body = `TrustLens security assistant response:\n\n${content}\n\nSent from TrustLens.`;
+    window.location.href = `mailto:${encodeURIComponent(currentUser.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
   return <div className="space-y-7">
     <div className="animate-rise">
       <div className="mb-3 flex items-center gap-2 font-mono-ui text-[10px] font-bold uppercase tracking-[.18em] text-[#3f8c70]"><span className="h-px w-7 bg-[#76c6a9]" />Ask securely</div>
@@ -443,6 +450,7 @@ function Assistant() {
           {entry.role === 'assistant' && <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#123f53] text-[#62e9f0]"><Bot size={14} /></div>}
           <div className={`max-w-[min(700px,85%)] rounded-2xl px-4 py-3 text-sm leading-6 ${entry.role === 'user' ? 'rounded-br-md bg-[#183f4f] text-[#f6f4eb]' : 'rounded-bl-md border border-[#dce5db] bg-[#eef5ed] text-[#31525c]'}`}>
             <p className="whitespace-pre-wrap">{entry.content}</p>
+            {entry.role === 'assistant' && index > 0 && <button type="button" data-testid={`button-email-assistant-${index}`} onClick={() => emailResponse(entry.content)} className="interactive-control mt-3 flex items-center gap-1.5 rounded-lg border border-[#b8d8cf] bg-[#f7fffa] px-2.5 py-1.5 text-[10px] font-bold text-[#287459] hover:border-[#65af93] hover:bg-white"><Mail size={12} /> Email this answer</button>}
           </div>
           {entry.role === 'user' && <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#656de7] text-[10px] font-bold text-white">{userInitials(getStoredUser())}</div>}
         </div>)}
