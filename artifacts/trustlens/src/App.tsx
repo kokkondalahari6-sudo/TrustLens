@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/reac
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { getGetAuditLogsQueryKey, getGetAuditStatsQueryKey, setAuthTokenGetter, useAnalyzePayload, useGetAuditLogs, useGetAuditStats, useHealthCheck, useLogin, useRegister } from '@workspace/api-client-react';
-import { Activity, ArrowRight, BarChart3, Check, ChevronDown, ClipboardCheck, Clock3, Copy, Download, FileDown, FileSearch, FileText, Fingerprint, Gauge, KeyRound, LockKeyhole, LogIn, Menu, RefreshCw, Search, ShieldCheck, ShieldAlert, Sparkles, Terminal, Timer, Upload, X, AlertTriangle, CircleAlert, CircleCheck, Info } from 'lucide-react';
+import { Activity, ArrowLeft, ArrowRight, BarChart3, Check, ChevronDown, ClipboardCheck, Clock3, Copy, Download, FileDown, FileSearch, FileText, Fingerprint, Gauge, KeyRound, LockKeyhole, LogIn, LogOut, Menu, RefreshCw, Search, ShieldCheck, ShieldAlert, Sparkles, Terminal, Timer, Upload, X, AlertTriangle, CircleAlert, CircleCheck, Info, UserRound } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -49,10 +49,25 @@ function Sidebar({ mobileOpen, setMobileOpen }: { mobileOpen: boolean; setMobile
 
 function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [location] = useLocation();
+  const [, setLocation] = useLocation();
   const title = location === '/inspector' ? 'Payload inspector' : location === '/reports' ? 'Audit reports' : 'Overview';
+  const goBack = () => {
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      setLocation('/');
+    }
+  };
+  const logout = () => {
+    window.localStorage.removeItem('trustlens_token');
+    queryClient.clear();
+    setProfileOpen(false);
+    setLocation('/login');
+  };
   return <div className="noise flex min-h-[100dvh] bg-[#f3f0e7]"><Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />{mobileOpen && <button aria-label="Close navigation" data-testid="button-close-navigation" className="fixed inset-0 z-30 bg-[#112f40]/40 md:hidden" onClick={() => setMobileOpen(false)} /> }
-    <main className="min-w-0 flex-1"><header className="flex h-[84px] items-center justify-between border-b border-[#dedbd1] bg-[#f8f6ef]/90 px-5 backdrop-blur md:px-10"><div className="flex items-center gap-3"><button aria-label="Open navigation" data-testid="button-open-navigation" className="rounded-lg p-2 text-[#42606a] hover:bg-[#e8e5db] md:hidden" onClick={() => setMobileOpen(true)}><Menu size={20} /></button><div><p className="font-mono-ui text-[9px] font-bold uppercase tracking-[.2em] text-[#799098]">TrustLens / {title}</p><h1 className="mt-1 font-display text-[22px] font-bold text-[#183847]">{title}</h1></div></div><div className="flex items-center gap-3"><div className="hidden items-center gap-2 rounded-full border border-[#ddd9ce] bg-[#fdfbf5] px-3 py-1.5 text-[10px] font-semibold text-[#58737a] sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-[#53a47d]" />Protected workspace</div><button data-testid="button-help" className="hidden h-8 w-8 items-center justify-center rounded-full border border-[#dcd9d0] text-[#58737a] hover:bg-[#e9e6dd] sm:flex"><Info size={15} /></button><div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#d6ad77] text-[10px] font-bold text-[#273c45]">AR</div></div></header><div className="mx-auto max-w-[1440px] p-5 md:p-10">{children}</div></main>
+    <main className="min-w-0 flex-1"><header className="flex h-[84px] items-center justify-between border-b border-[#dedbd1] bg-[#f8f6ef]/90 px-5 backdrop-blur md:px-10"><div className="flex min-w-0 items-center gap-2 md:gap-3"><button aria-label="Go back" data-testid="button-go-back" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#254778] bg-[#09142d] text-[#91b5dc] transition hover:-translate-x-0.5 hover:border-[#41d9ff] hover:text-[#5fe1ff]" onClick={goBack}><ArrowLeft size={17} /></button><button aria-label="Open navigation" data-testid="button-open-navigation" className="rounded-lg p-2 text-[#42606a] hover:bg-[#e8e5db] md:hidden" onClick={() => setMobileOpen(true)}><Menu size={20} /></button><div className="min-w-0"><p className="font-mono-ui text-[9px] font-bold uppercase tracking-[.2em] text-[#799098]">TrustLens / {title}</p><h1 className="mt-1 truncate font-display text-[22px] font-bold text-[#183847]">{title}</h1></div></div><div className="flex items-center gap-3"><div className="hidden items-center gap-2 rounded-full border border-[#ddd9ce] bg-[#fdfbf5] px-3 py-1.5 text-[10px] font-semibold text-[#58737a] sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-[#53a47d]" />Protected workspace</div><button data-testid="button-help" className="hidden h-8 w-8 items-center justify-center rounded-full border border-[#dcd9d0] text-[#58737a] hover:bg-[#e9e6dd] sm:flex"><Info size={15} /></button><div className="relative"><button type="button" aria-label="Open profile menu" aria-expanded={profileOpen} data-testid="button-profile" onClick={() => setProfileOpen((open) => !open)} className="flex items-center gap-2 rounded-xl p-1 transition hover:bg-[#e8e5db]"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#d6ad77] text-[10px] font-bold text-[#273c45]">AR</div><ChevronDown size={14} className={`text-[#58737a] transition-transform ${profileOpen ? 'rotate-180' : ''}`} /></button>{profileOpen && <div role="menu" data-testid="profile-menu" className="absolute right-0 top-11 z-50 w-52 overflow-hidden rounded-xl border border-[#254778] bg-[#09142d] p-1.5 shadow-[0_16px_40px_rgba(0,0,0,.3)]"><div className="border-b border-[#1b3760] px-3 py-2.5"><p className="flex items-center gap-2 text-xs font-bold text-[#eef6ff]"><UserRound size={13} className="text-[#5fe1ff]" />Alex Rivera</p><p className="mt-1 text-[10px] text-[#7893ba]">Security engineer</p></div><button type="button" role="menuitem" data-testid="button-logout" onClick={logout} className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-[#ff9bb8] transition hover:bg-[#2b1633]"><LogOut size={14} /> Log out</button></div>}</div></div></header><div className="mx-auto max-w-[1440px] p-5 md:p-10">{children}</div></main>
   </div>;
 }
 
