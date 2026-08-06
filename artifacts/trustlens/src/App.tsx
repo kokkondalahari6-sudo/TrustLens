@@ -563,6 +563,7 @@ function PrivacyShield() {
   const [confirmation, setConfirmation] = useState(false);
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const analysisRef = useRef<HTMLDivElement>(null);
+  const currentUser = getStoredUser();
   const rawScan = useMemo(() => scanShieldText(draft, sensitivity), [draft, sensitivity]);
   const scan = monitoring ? rawScan : { risk: 0, classification: 'Safe' as ShieldClassification, signals: [] as ShieldSignal[] };
   const isRisky = scan.risk > 20;
@@ -603,6 +604,17 @@ function PrivacyShield() {
     setNotice('Send attempt blocked and draft cleared.');
     window.setTimeout(() => setNotice(''), 4000);
   };
+  const alertText = lastScan
+    ? `TrustLens Privacy Shield alert\n\nSensitive information was detected in a message prepared for an AI chatbot.\n\nRisk score: ${lastScan.risk}/100\nClassification: ${lastScan.classification}\nDetected: ${lastScan.signals.length ? lastScan.signals.join(', ') : 'No sensitive signals'}\n\nThe original message was not included for privacy. Review the TrustLens Shield analysis.`
+    : '';
+  const openWhatsAppAlert = () => {
+    if (!alertText) return;
+    window.open(`https://wa.me/918885634807?text=${encodeURIComponent(alertText)}`, '_blank', 'noopener,noreferrer');
+  };
+  const openEmailAlert = () => {
+    if (!alertText || !currentUser.email) return;
+    window.location.href = `mailto:${encodeURIComponent(currentUser.email)}?subject=${encodeURIComponent('TrustLens Privacy Shield alert')}&body=${encodeURIComponent(alertText)}`;
+  };
   const toggleApp = (app: string) => setAppList((items) => items.includes(app) ? items.filter((item) => item !== app) : [...items, app]);
   const scrollToAnalysis = () => analysisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -626,11 +638,12 @@ function PrivacyShield() {
       </aside>
     </div>
     <div ref={analysisRef} className="grid scroll-mt-6 gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,.8fr)]">
-      <section className="animate-rise delay-3 rounded-2xl border border-[#2b5d90] bg-[#091a39] p-5 paper-shadow" data-testid="region-shield-analysis">
+       <section className="animate-rise delay-3 rounded-2xl border border-[#2b5d90] bg-[#091a39] p-5 paper-shadow" data-testid="region-shield-analysis">
         <div className="flex items-start justify-between gap-3"><div><p className="font-display text-lg font-bold text-[#eef7ff]">Detailed analysis</p><p className="mt-1 text-xs text-[#88a2c6]">Explainable matches with redacted display values</p></div><span className="flex items-center gap-1.5 font-mono-ui text-[9px] uppercase tracking-[.12em] text-[#65d8e6]"><LockKeyhole size={12} /> Local only</span></div>
         {!lastScan && <div className="flex min-h-[220px] flex-col items-center justify-center text-center"><div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-dashed border-[#3a6798] bg-[#0b234a] text-[#63e7ef]"><EyeOff size={21} /></div><p className="text-sm font-bold text-[#dcecff]">No scan committed yet</p><p className="mt-2 max-w-xs text-xs leading-5 text-[#7895bd]">Scan the draft to pin a reviewable snapshot here. Live scoring stays in memory.</p></div>}
         {lastScan && lastScan.signals.length === 0 && <div className="mt-5 rounded-xl border border-[#2d947c] bg-[#0a3541] p-5 text-center"><CheckCircle2 className="mx-auto mb-2 text-[#63e7c1]" size={24} /><p className="text-sm font-bold text-[#d5fff2]">No sensitive signals found</p><p className="mt-1 text-xs text-[#91c9c1]">The message is currently classified Safe at {lastScan.risk}/100 risk.</p></div>}
         {lastScan && lastScan.signals.length > 0 && <div className="mt-5 space-y-2">{lastScan.signals.map((signal, index) => <div key={`${signal.type}-${index}`} className="rounded-xl border border-[#2b4f7e] bg-[#0b2146] p-3.5" data-testid={`card-shield-signal-${index}`}><div className="flex flex-wrap items-center justify-between gap-2"><span className="flex items-center gap-2 text-xs font-bold text-[#e8f4ff]"><span className={`h-2 w-2 rounded-full ${signal.severity === 'Critical' ? 'bg-[#b48cff]' : signal.severity === 'High' ? 'bg-[#ff829b]' : 'bg-[#f3c36c]'}`} />{signal.type}</span><span className="flex items-center gap-2"><span className="font-mono-ui text-[10px] font-bold text-[#63e7ef]">{signal.confidence}% confidence</span><span className="rounded-full border border-[#48638f] px-2 py-0.5 font-mono-ui text-[9px] uppercase text-[#a9bee0]">{signal.severity}</span></span></div><p className="mt-3 rounded-lg border border-[#3c5a87] bg-[#06142d] px-3 py-2 font-mono-ui text-[10px] text-[#ffacc0]">{signal.value}</p><p className="mt-2 text-[11px] leading-5 text-[#9bb1d2]">{signal.rationale}</p></div>)}</div>}
+          {lastScan && <div className="mt-5 rounded-xl border border-[#2b5d90] bg-[#0b2146] p-4" data-testid="region-shield-alert-sharing"><div className="flex items-start gap-3"><Bell size={16} className="mt-0.5 shrink-0 text-[#63e7ef]" /><div><p className="text-xs font-bold text-[#e8f4ff]">Share this alert</p><p className="mt-1 text-[10px] leading-4 text-[#91a9cf]">Open a prefilled alert for WhatsApp or your logged-in email. The original message is never included.</p></div></div><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={openWhatsAppAlert} data-testid="button-shield-whatsapp-alert" className="flex items-center gap-1.5 rounded-lg border border-[#3dba91] bg-[#0d493f] px-3 py-2 text-[10px] font-bold text-[#b8ffe9] hover:border-[#65e7c1] hover:bg-[#126052]">WhatsApp +91 8885634807</button><button type="button" onClick={openEmailAlert} data-testid="button-shield-email-alert" className="flex items-center gap-1.5 rounded-lg border border-[#5d8fce] bg-[#123665] px-3 py-2 text-[10px] font-bold text-[#d9edff] hover:border-[#8dc2ff] hover:bg-[#194982]"><Mail size={13} /> Email {currentUser.email}</button></div></div>}
       </section>
       <section className="animate-rise delay-4 rounded-2xl border border-[#2b5d90] bg-[#091a39] p-5 paper-shadow">
         <div className="mb-4 flex items-center justify-between"><div><p className="font-display text-lg font-bold text-[#eef7ff]">Shield settings</p><p className="mt-1 text-xs text-[#88a2c6]">UI-only controls for this prototype</p></div><Settings2 size={18} className="text-[#63e7ef]" /></div>
