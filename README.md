@@ -155,7 +155,7 @@ The built-in chatbot helps users by:
 
 ## Database
 
-- MongoDB Atlas
+- MongoDB Atlas/ replit default data base
 
 ## AI
 
@@ -163,8 +163,7 @@ The built-in chatbot helps users by:
 
 ## Deployment
 
-- Vercel
-- Render / Railway
+- replit deploymnemt 
 
 ---
 
@@ -353,10 +352,10 @@ By acting as an intelligent privacy firewall, TrustLens detects, redacts, explai
 
 ### Team Members
 
-- Member 1
-- Member 2
-- Member 3
-- Member 4
+- adithi
+- lahari
+- kasthuri
+- tanisha 
 
 ---
 
